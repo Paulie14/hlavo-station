@@ -209,7 +209,11 @@ void loop() {
     Serial.println();    
 
     Serial.print("Směr větru: "); Serial.print(meters.getDir()); Serial.println(" deg");
-		Serial.print("Rychlost větru: "); Serial.print(meters.getSpeed()); Serial.println(" km/h"); 
+
+    Serial.print("Rychlost větru TICK: "); Serial.println(meters.getSpeedTicks());
+    Serial.print("Srážky TICK: "); Serial.println(meters.getRainTicks());
+
+	Serial.print("Rychlost větru: "); Serial.print(meters.getSpeed()); Serial.println(" km/h"); 
     Serial.print("Srážky: "); Serial.print(meters.getRain()); Serial.println(" mm");
 
    sht4.getEvent(&humidity, &temp);
