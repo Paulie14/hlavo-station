@@ -81,6 +81,8 @@ class WeatherMeters {
     float getDir();
     float getSpeed();
     float getRain();
+    unsigned int getSpeedTicks();
+    unsigned int getRainTicks();
     void intAnemometer();
     void intRaingauge();
     void timer();
@@ -226,6 +228,12 @@ float WeatherMeters<N>::WeatherMeters::getSpeed() {
 }
 
 template <uint8_t N>
+unsigned int WeatherMeters<N>::WeatherMeters::getSpeedTicks() {
+    // float res = (static_cast<float>(_anemometer_sum);
+    return _anemometer_sum;
+}
+
+template <uint8_t N>
 float WeatherMeters<N>::WeatherMeters::getRain() {
     float res = static_cast<float>(_rain_sum) * RAIN_GAUGE_RES;
 
@@ -237,6 +245,12 @@ float WeatherMeters<N>::WeatherMeters::getRain() {
 }
 
 template <uint8_t N>
+unsigned int WeatherMeters<N>::WeatherMeters::getRainTicks() {
+    // float res = (static_cast<float>(_rain_sum);
+    return _rain_sum;
+}
+
+template <uint8_t N>
 void WeatherMeters<N>::intAnemometer() {
     _anemometer_ticks++;
 }
@@ -244,6 +258,7 @@ void WeatherMeters<N>::intAnemometer() {
 template <uint8_t N>
 void WeatherMeters<N>::intRaingauge() {
     _rain_ticks++;
+    Serial.println(_rain_ticks);
 
     if (_rain_callback) {
         _rain_callback();

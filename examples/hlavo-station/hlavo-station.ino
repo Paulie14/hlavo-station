@@ -1,9 +1,8 @@
-
 // #define ENABLE_ARDUINO_IDE_SUPPORT
  
-#ifdef ENABLE_ARDUINO_IDE_SUPPORT
-#include "customLibs.h"
-#else
+// #ifdef ENABLE_ARDUINO_IDE_SUPPORT
+// #include "customLibs.h"
+// #else
 // sbernice
 #include <Wire.h>
 // temperature, humidity
@@ -11,13 +10,13 @@
 // communication (sbernice)
 #include <SPI.h>
 // read voltage of ESP32 battery
-#include <ESP32AnalogRead.h>
+#include "ESP32AnalogRead.h"
 #include "WeatherMeters.h"
 // real time
-#include <RTClib.h>
+#include "RTClib.h"
 // SD card IO
-#include <SD.h>
-#endif
+#include "SD.h"
+// #endif
 
 // defnice sbernice i2C a SPI
 #define SDA 42
