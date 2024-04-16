@@ -16,6 +16,8 @@
 #include "RTClib.h"
 // SD card IO
 #include "SD.h"
+// file handling
+#include "file_io.h"
 // #endif
 
 // defnice sbernice i2C a SPI
@@ -65,40 +67,6 @@ void IRAM_ATTR onTimer() {
 
 void readDone(void) {
 	got_data = true;
-}
-
-
-// FILES
-void appendFile(fs::FS &fs, const char * path, const char * message){
-    Serial.printf("Appending to file: %s\n", path);
-
-    File file = fs.open(path, FILE_APPEND);
-    if(!file){
-        Serial.println("Failed to open file for appending");
-        return;
-    }
-    if(file.print(message)){
-        Serial.println("Message appended");
-    } else {
-        Serial.println("Append failed");
-    }
-    file.close();
-}
-
-void readFile(fs::FS &fs, const char * path){
-    Serial.printf("Reading file: %s\n", path);
-
-    File file = fs.open(path);
-    if(!file){
-        Serial.println("Failed to open file for reading");
-        return;
-    }
-
-    Serial.print("Read from file: ");
-    while(file.available()){
-        Serial.write(file.read());
-    }
-    file.close();
 }
 
  
@@ -179,8 +147,9 @@ void setup() {
   // This line sets the RTC with an explicit date & time, for example to set
   // January 21, 2014 at 3am you would call:
   // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-  appendFile(SD, data_meteo_filename, "World!\n");
-  readFile(SD, data_meteo_filename);
+  FileIO datafile(SD, data_meteo_filename);
+  datafile.append("World!\n");
+  datafile.read();
 }
  
 void loop() {
