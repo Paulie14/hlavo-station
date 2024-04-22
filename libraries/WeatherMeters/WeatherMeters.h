@@ -25,20 +25,38 @@ SOFTWARE.
 
 #define RAIN_GAUGE_RES 0.2794  // mm
 #define WIND_SPEED_RES 2.4  // km/h
+#define DEBOUNCE_TRESHOLD 50 // Debounce threshold in milliseconds
 
 #if WM_ADC_RESOLUTION == 4096 || defined(STM32_MCU_SERIES) || defined(ARDUINO_ARCH_ESP32)
 const static uint16_t _windvane_table[16][2] = {
-    {1125, 264},
-    {675,  335},
-    {900,  372},
+    // {1125, 264},
+    // {675,  335},
+    // {900,  372},
+    // {1575, 506},
+    // {1350, 739},
+    // {2025, 979},
+    // {1800, 1149},
+    // {225,  1624},
+    // {450,  1845},
+    // {2475, 2398},
+    // {2250, 2521},
+    // {3375, 2811},
+    // {0,    3143},
+    // {2925, 3310},
+    // {3150, 3549},
+    // {2700, 3781}
+    // Edits PE+MS 22.4.2024; comments diff to original
+    {1125, 204},  // -60
+    {675,  275},  // -60
+    {900,  312},  // -60
     {1575, 506},
     {1350, 739},
-    {2025, 979},
-    {1800, 1149},
+    {2025, 919},  // -60
+    {1800, 1099}, // -60
     {225,  1624},
     {450,  1845},
-    {2475, 2398},
-    {2250, 2521},
+    {2475, 2298}, // -100
+    {2250, 2421}, // -100
     {3375, 2811},
     {0,    3143},
     {2925, 3310},
@@ -83,6 +101,7 @@ class WeatherMeters {
     float getRain();
     unsigned int getSpeedTicks();
     unsigned int getRainTicks();
+    unsigned int getDirAdcValue();
     void intAnemometer();
     void intRaingauge();
     void timer();
@@ -104,7 +123,10 @@ class WeatherMeters {
     volatile uint32_t _rain_ticks;
     volatile uint32_t _rain_sum;
     volatile float    _dir;
+    volatile uint16_t _dir_adc_value;
     volatile uint16_t _timer_counter;
+    volatile uint32_t _lastInterruptTimeAnemometer;
+    volatile uint32_t _lastInterruptTimeRain;
 };
 
 template <uint8_t N>
@@ -119,7 +141,10 @@ WeatherMeters<N>::WeatherMeters(int windvane_pin, uint16_t period):
     _rain_ticks(0),
     _rain_sum(0),
     _dir(NAN),
-    _timer_counter(0) {
+    _timer_counter(0),
+    _lastInterruptTimeAnemometer(0),
+    _lastInterruptTimeRain(0)
+    {
     if (N > 0) {
         _dirFilter = new MovingAverageAngle <N>;
     }
@@ -229,8 +254,17 @@ float WeatherMeters<N>::WeatherMeters::getSpeed() {
 
 template <uint8_t N>
 unsigned int WeatherMeters<N>::WeatherMeters::getSpeedTicks() {
-    // float res = (static_cast<float>(_anemometer_sum);
     return _anemometer_sum;
+}
+
+template <uint8_t N>
+unsigned int WeatherMeters<N>::WeatherMeters::getRainTicks() {
+    return _rain_sum;
+}
+
+template <uint8_t N>
+unsigned int WeatherMeters<N>::WeatherMeters::getDirAdcValue() {
+    return _dir_adc_value;
 }
 
 template <uint8_t N>
@@ -245,20 +279,21 @@ float WeatherMeters<N>::WeatherMeters::getRain() {
 }
 
 template <uint8_t N>
-unsigned int WeatherMeters<N>::WeatherMeters::getRainTicks() {
-    // float res = (static_cast<float>(_rain_sum);
-    return _rain_sum;
-}
-
-template <uint8_t N>
 void WeatherMeters<N>::intAnemometer() {
-    _anemometer_ticks++;
+    uint32_t currentTime = millis();
+    if (currentTime - _lastInterruptTimeAnemometer > 2) {
+        _anemometer_ticks++;
+        _lastInterruptTimeAnemometer = currentTime;
+    }
 }
 
 template <uint8_t N>
 void WeatherMeters<N>::intRaingauge() {
-    _rain_ticks++;
-    Serial.println(_rain_ticks);
+    uint32_t currentTime = millis();
+    if (currentTime - _lastInterruptTimeRain > DEBOUNCE_TRESHOLD) {
+        _rain_ticks++;
+        _lastInterruptTimeRain = currentTime;
+    }
 
     if (_rain_callback) {
         _rain_callback();
@@ -270,7 +305,8 @@ void WeatherMeters<N>::timer() {
     _timer_counter++;
 
     if (_windvane_pin > -1) {
-        adcToDir(analogRead(_windvane_pin));
+        _dir_adc_value = analogRead(_windvane_pin);
+        adcToDir(_dir_adc_value);
     }
 
     if (_period > 0) {
