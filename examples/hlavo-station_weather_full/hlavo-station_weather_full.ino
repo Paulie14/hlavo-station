@@ -6,7 +6,7 @@
 // SD card IO
 #include "SD.h"
 // file handling
-#include "file_io.h"
+#include "file_info.h"
 // SD card pin
 #define SD_CS_PIN 10
 #define data_meteo_filename "/meteo.txt"
@@ -87,9 +87,8 @@ void loop() {
     Serial.printf("Rain gauge TICK: %d\n", data.raingauge_ticks);
 
     char csvLine[150];
-    meteoDataToCSV(data, csvLine);
-    FileIO datafile(SD, data_meteo_filename);
-    datafile.append(csvLine);
+    FileInfo datafile(SD, data_meteo_filename);
+    datafile.append(data.dataToCsvLine(csvLine));
 
     weather.resetGotData();
     Serial.println("--------------------------");

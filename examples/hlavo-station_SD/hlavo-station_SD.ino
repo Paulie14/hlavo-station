@@ -1,7 +1,7 @@
 // SD card IO
 #include "SD.h"
 // file handling
-#include "file_io.h"
+#include "file_info.h"
 
 
 #define PIN_ON 47 // napajeni !!!
@@ -38,14 +38,14 @@ void setup() {
         ; // cekani na Serial port
     }
 
-    FileIO datafile(SD, data_meteo_filename);
+    FileInfo datafile(SD, data_meteo_filename);
     datafile.append("World!\n");
     datafile.read();
 }
  
 void loop() {
 
-  FileIO datafile(SD, data_meteo_filename);
+  FileInfo datafile(SD, data_meteo_filename);
 
   char buffer[100];
   ltoa(millis(), buffer, 10);
