@@ -4,8 +4,8 @@
 class Clock {
   private:
     RTC_DS3231 rtc;
-    uint8_t _data_pin;  // I2C data pin
-    uint8_t _clock_pin; // I2C clock pin
+    const uint8_t _data_pin;  // I2C data pin
+    const uint8_t _clock_pin; // I2C clock pin
     const char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
   public:
