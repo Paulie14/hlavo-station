@@ -11,12 +11,21 @@
 #define SD_CS_PIN 10
 #define data_meteo_filename "/meteo.txt"
 
+
 /************************************************* RTC *************************************************/
 // definice sbernice i2C pro RTC (real time clock)
 #define rtc_SDA_PIN 42 // data pin
 #define rtc_SCL_PIN 2  // clock pin
 #include "clock.h"
 Clock rtc_clock(rtc_SDA_PIN, rtc_SCL_PIN);
+
+
+/*********************************************** BATTERY ***********************************************/
+#include "ESP32AnalogRead.h"
+ESP32AnalogRead adc;
+#define ADCpin 9
+#define DeviderRatio 1.7693877551  // Voltage devider ratio on ADC pin 1MOhm + 1.3MOhm
+
 
 /****************************************** WHEATHER STATION ******************************************/
 #define WEATHER_PERIOD 4  // data refresh in seconds
@@ -31,6 +40,7 @@ WeatherStation weather(WINDVANE_PIN, ANEMOMETER_PIN, RAINGAUGE_PIN, WEATHER_PERI
 void IRAM_ATTR intAnemometer() { weather.intAnemometer(); }
 void IRAM_ATTR intRaingauge() { weather.intRaingauge(); }
 void IRAM_ATTR intPeriod() { weather.intTimer(); }
+
 
 /*********************************************** SETUP ***********************************************/ 
 void setup() {
@@ -52,6 +62,9 @@ void setup() {
 
   // weather station
   weather.setup(intAnemometer, intRaingauge, intPeriod);
+
+  // battery
+  adc.attach(ADCpin); // setting ADC
 
   // SD card setup
   pinMode(SD_CS_PIN, OUTPUT);
@@ -86,10 +99,13 @@ void loop() {
     data.wind_speed_ticks = weather.getSpeedTicks();
     data.raingauge_ticks = weather.getRainTicks();
 
+    data.battery_voltage = adc.readVoltage() * DeviderRatio;
+
     Serial.printf("Wind direc adc:  %d\n", weather.getDirAdcValue());
     Serial.printf("Wind direc deg:  %f\n", data.wind_direction);
     Serial.printf("Wind speed TICK: %d\n", data.wind_speed_ticks);
     Serial.printf("Rain gauge TICK: %d\n", data.raingauge_ticks);
+    Serial.printf("Battery [V]: %f\n", data.battery_voltage);
 
     char csvLine[150];
     FileInfo datafile(SD, data_meteo_filename);
