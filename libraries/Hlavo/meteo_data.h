@@ -17,9 +17,9 @@ class MeteoData{
     // battery - ESP32 analog read
     float battery_voltage;
 
-    const char * delimiter = ";";
+    static const char * delimiter;
 
-    char* headerToCsvLine(char* csvLine) {
+    static char* headerToCsvLine(char* csvLine) {
         const int n_columns = 7;
         const char* columnNames[] = {
           "DateTime",
@@ -66,6 +66,7 @@ class MeteoData{
     }
 };
 
+const char * MeteoData::delimiter = ";";
 
 // // Function to convert MeteoData struct to CSV string with a custom delimiter
 // char* meteoDataToCSV(struct MeteoData data, char* csvLine) {

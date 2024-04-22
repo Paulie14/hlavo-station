@@ -64,6 +64,11 @@ void setup() {
       return;
   }
 
+  char csvLine[150];
+  FileInfo datafile(SD, data_meteo_filename);
+  if(!datafile.exists())
+    datafile.write(MeteoData::headerToCsvLine(csvLine));
+
   Serial.println("setup completed.");
   Serial.println("--------------------------");
 }
