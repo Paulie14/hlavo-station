@@ -1,4 +1,3 @@
-#include "WeatherMeters.h"
 #include "meteo_data.h"
 
 #define PIN_ON 47 // napajeni !!!
@@ -14,44 +13,24 @@
 
 /************************************************* RTC *************************************************/
 // definice sbernice i2C pro RTC (real time clock)
-#define rtc_SDA 42 // data pin
-#define rtc_SCL 2  // clock pin
+#define rtc_SDA_PIN 42 // data pin
+#define rtc_SCL_PIN 2  // clock pin
 #include "clock.h"
-Clock rtc_clock(rtc_SDA, rtc_SCL);
+Clock rtc_clock(rtc_SDA_PIN, rtc_SCL_PIN);
 
 /****************************************** WHEATHER STATION ******************************************/
 #define WEATHER_PERIOD 4  // data refresh in seconds
-const int windvane_pin = A0; // A0 := 1
-const int anemometer_pin = 5;
-const int raingauge_pin = 6; // 10 kOhm / 10pF
+#define WINDVANE_PIN A0   // A0 := 1
+#define ANEMOMETER_PIN 5
+#define RAINGAUGE_PIN 6  // 10 kOhm / 10pF
+#include "weather_station.h"
+WeatherStation weather(WINDVANE_PIN, ANEMOMETER_PIN, RAINGAUGE_PIN, WEATHER_PERIOD);
 
-volatile bool got_data = false;
-
-hw_timer_t * timer = NULL;
-volatile SemaphoreHandle_t timerSemaphore;
-volatile bool do_update = false;
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
-
-WeatherMeters <4> meters(windvane_pin, WEATHER_PERIOD);  // filter last 4 directions, refresh data every * sec
-
+// interuption
 // ICACHE_RAM_ATTR replaced by IRAM_ATTR (esp and arduino>3.0.0)
-void IRAM_ATTR intAnemometer() {
-	meters.intAnemometer();
-}
-
-void IRAM_ATTR intRaingauge() {
-	meters.intRaingauge();
-}
-
-void IRAM_ATTR onTimer() {
-	xSemaphoreGiveFromISR(timerSemaphore, NULL);
-	do_update = true;
-}
-
-void readDone(void) {
-	got_data = true;
-}
-
+void IRAM_ATTR intAnemometer() { weather.intAnemometer(); }
+void IRAM_ATTR intRaingauge() { weather.intRaingauge(); }
+void IRAM_ATTR intPeriod() { weather.intTimer(); }
 
 /*********************************************** SETUP ***********************************************/ 
 void setup() {
@@ -68,26 +47,13 @@ void setup() {
   pinMode(PIN_ON, OUTPUT);      // Set EN pin for uSUP stabilisator as output
   digitalWrite(PIN_ON, HIGH);   // Turn on the uSUP power
 
+  // clock setup
   rtc_clock.begin();
 
   // weather station
-  pinMode(windvane_pin, ANALOG);
-  pinMode(raingauge_pin, INPUT_PULLUP);  // Set GPIO as input with pull-up (like adding 10k resitor)
-  pinMode(anemometer_pin, INPUT_PULLUP);  // Set GPIO as input with pull-up (like adding 10k resitor)
-  attachInterrupt(digitalPinToInterrupt(anemometer_pin), intAnemometer, CHANGE);
-	attachInterrupt(digitalPinToInterrupt(raingauge_pin), intRaingauge, CHANGE);
+  weather.setup(intAnemometer, intRaingauge, intPeriod);
 
-	meters.attach(readDone);
-
-	timerSemaphore = xSemaphoreCreateBinary();
-	timer = timerBegin(0, 80, true);
-	timerAttachInterrupt(timer, &onTimer, true);
-	timerAlarmWrite(timer, 1000000, true);
-	timerAlarmEnable(timer);
-
-	meters.reset();  // in case we got already some interrupts
-
-  // SD card
+  // SD card setup
   pinMode(SD_CS_PIN, OUTPUT);
   // SD Card Initialization
   if (SD.begin()){
@@ -105,31 +71,29 @@ void setup() {
 
 /*********************************************** LOOP ***********************************************/ 
 void loop() {
-  if(do_update){
-		meters.timer();
-		do_update = false;
-	}
+  
+  weather.update();
 
-	if (got_data) {
-		got_data = false;
+	if (weather.gotData()) {
 
-      MeteoData data;
-      data.wind_direction = meters.getDir();
-      data.wind_speed_ticks = meters.getSpeedTicks();
-      data.raingauge_ticks = meters.getRainTicks();
+    MeteoData data;
+    data.wind_direction = weather.getDirection();
+    data.wind_speed_ticks = weather.getSpeedTicks();
+    data.raingauge_ticks = weather.getRainTicks();
 
-      Serial.printf("Wind direc adc:  %d\n", meters.getDirAdcValue());
-      Serial.printf("Wind direc deg:  %f\n", data.wind_direction);
-      Serial.printf("Wind speed TICK: %d\n", data.wind_speed_ticks);
-      Serial.printf("Rain gauge TICK: %d\n", data.raingauge_ticks);
+    Serial.printf("Wind direc adc:  %d\n", weather.getDirAdcValue());
+    Serial.printf("Wind direc deg:  %f\n", data.wind_direction);
+    Serial.printf("Wind speed TICK: %d\n", data.wind_speed_ticks);
+    Serial.printf("Rain gauge TICK: %d\n", data.raingauge_ticks);
 
-      char csvLine[150];
-      meteoDataToCSV(data, csvLine);
-      FileIO datafile(SD, data_meteo_filename);
-      datafile.append(csvLine);
+    char csvLine[150];
+    meteoDataToCSV(data, csvLine);
+    FileIO datafile(SD, data_meteo_filename);
+    datafile.append(csvLine);
 
-      Serial.println("--------------------------");
-   }
+    weather.resetGotData();
+    Serial.println("--------------------------");
+  }
 
   // delay(1);
 }
