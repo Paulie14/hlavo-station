@@ -132,6 +132,7 @@ void loop() {
 
     data.temperature = temp.temperature;
     data.humidity = humidity.temperature;
+    data.light = light_lux;
 
     data.battery_voltage = adc.readVoltage() * DeviderRatio;
 

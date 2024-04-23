@@ -14,13 +14,15 @@ class MeteoData{
     float humidity;
     float temperature;
 
+    float light;
+
     // battery - ESP32 analog read
     float battery_voltage;
 
     static const char * delimiter;
 
     static char* headerToCsvLine(char* csvLine) {
-        const int n_columns = 7;
+        const int n_columns = 8;
         const char* columnNames[] = {
           "DateTime",
           "WindDirection",
@@ -28,6 +30,7 @@ class MeteoData{
           "RainGaugeTicks",
           "Humidity",
           "Temperature",
+          "Light",
           "BatteryVoltage"
         };
         csvLine[0] = '\0'; // Initialize the CSV line as an empty string
@@ -55,13 +58,14 @@ class MeteoData{
       // sprintf(datetime, "%04d-%02d-%02d %02d:%02d:%02d%c%.2f%c%u%c%u%c%.2f%c%.2f%c%.2f\n",
       //         data.datetime.year(), data.datetime.month(), data.datetime.day(),
       //         data.datetime.hour(), data.datetime.minute(), data.datetime.second());
-      sprintf(csvLine, "%s%s%.1f%s%u%s%u%s%.2f%s%.2f%s%.2f\n",
+      sprintf(csvLine, "%s%s%.1f%s%u%s%u%s%.2f%s%.2f%s%.0f%s%.3f\n",
               dt, delimiter,
               wind_direction, delimiter,
               wind_speed_ticks, delimiter,
               raingauge_ticks, delimiter,
               humidity, delimiter,
               temperature, delimiter,
+              light, delimiter,
               battery_voltage);
       return csvLine;
     }
