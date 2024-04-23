@@ -38,9 +38,10 @@ class MeteoData{
             strcat(csvLine, columnNames[i]);
 
             // If it's not the last string, add the delimiter
-            if (i < n_columns - 1) {
-                strcat(csvLine, delimiter);
-            }
+            if (i < n_columns - 1)
+              strcat(csvLine, delimiter);
+            else
+              strcat(csvLine, "\n");
         }
 
         return csvLine;
@@ -54,7 +55,7 @@ class MeteoData{
       // sprintf(datetime, "%04d-%02d-%02d %02d:%02d:%02d%c%.2f%c%u%c%u%c%.2f%c%.2f%c%.2f\n",
       //         data.datetime.year(), data.datetime.month(), data.datetime.day(),
       //         data.datetime.hour(), data.datetime.minute(), data.datetime.second());
-      sprintf(csvLine, "%s%c%.2f%c%u%c%u%c%.2f%c%.2f%c%.2f\n",
+      sprintf(csvLine, "%s%s%.1f%s%u%s%u%s%.2f%s%.2f%s%.2f\n",
               dt, delimiter,
               wind_direction, delimiter,
               wind_speed_ticks, delimiter,
