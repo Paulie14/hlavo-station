@@ -31,9 +31,11 @@ ESP32AnalogRead adc;
 #include "Adafruit_SHT4x.h"
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 
+#include "BH1750.h"
+BH1750 lightMeter;
 
 /****************************************** WHEATHER STATION ******************************************/
-#define WEATHER_PERIOD 4  // data refresh in seconds
+#define WEATHER_PERIOD 8  // data refresh in seconds
 #define WINDVANE_PIN A0   // A0 := 1
 #define ANEMOMETER_PIN 5
 #define RAINGAUGE_PIN 6  // 10 kOhm / 10pF
@@ -80,6 +82,12 @@ void setup() {
   sht4.setPrecision(SHT4X_HIGH_PRECISION); // nejvyssi rozliseni
   sht4.setHeater(SHT4X_NO_HEATER); // bez vnitrniho ohrevu
 
+  // Light
+  if(!lightMeter.begin())
+  {
+    Serial.println("BH1750 (light) not found.");
+  }
+
   // SD card setup
   pinMode(SD_CS_PIN, OUTPUT);
   // SD Card Initialization
@@ -93,6 +101,8 @@ void setup() {
 
   char csvLine[150];
   FileInfo datafile(SD, data_meteo_filename);
+  datafile.remove();
+  // datafile.read();
   if(!datafile.exists())
     datafile.write(MeteoData::headerToCsvLine(csvLine));
 
@@ -108,6 +118,9 @@ void loop() {
 
 	if (weather.gotData()) {
 
+    sensors_event_t humidity, temp; // promenne vlhkost a teplota
+    sht4.getEvent(&humidity, &temp);
+    float light_lux = lightMeter.readLightLevel();
 
     DateTime dt = rtc_clock.now();
 
@@ -117,10 +130,6 @@ void loop() {
     data.wind_speed_ticks = weather.getSpeedTicks();
     data.raingauge_ticks = weather.getRainTicks();
 
-    data.battery_voltage = adc.readVoltage() * DeviderRatio;
-
-    sensors_event_t humidity, temp; // promenne vlhkost a teplota
-    sht4.getEvent(&humidity, &temp);
     data.temperature = temp.temperature;
     data.humidity = humidity.temperature;
 
@@ -129,6 +138,7 @@ void loop() {
     Serial.printf("DateTime: %s\n", dt.timestamp().c_str());
     Serial.printf("Temperature: %f degC\n", temp.temperature);
     Serial.printf("Humidity: %f rH\n", humidity.relative_humidity);
+    Serial.printf("Light: %f lx\n", light_lux);
 
     Serial.printf("Wind direc adc:  %d\n", weather.getDirAdcValue());
     Serial.printf("Wind direc deg:  %f\n", data.wind_direction);
@@ -139,6 +149,8 @@ void loop() {
     char csvLine[150];
     FileInfo datafile(SD, data_meteo_filename);
     datafile.append(data.dataToCsvLine(csvLine));
+
+    datafile.read();
 
     weather.resetGotData();
     Serial.println("--------------------------");
