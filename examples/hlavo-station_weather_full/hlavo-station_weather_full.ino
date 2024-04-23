@@ -71,11 +71,10 @@ void setup() {
   // battery
   adc.attach(ADCpin); // setting ADC
 
-  // humidity
+  // humidity and temperature
   if (! sht4.begin())
   {
-    Serial.println("SHT4x not found");
-    // while (1) delay(1);
+    Serial.println("SHT4x not found.");
   }
 
   sht4.setPrecision(SHT4X_HIGH_PRECISION); // nejvyssi rozliseni
@@ -109,7 +108,11 @@ void loop() {
 
 	if (weather.gotData()) {
 
+
+    DateTime dt = rtc_clock.now();
+
     MeteoData data;
+    data.datetime = dt;
     data.wind_direction = weather.getDirection();
     data.wind_speed_ticks = weather.getSpeedTicks();
     data.raingauge_ticks = weather.getRainTicks();
@@ -120,6 +123,10 @@ void loop() {
     sht4.getEvent(&humidity, &temp);
     data.temperature = temp.temperature;
     data.humidity = humidity.temperature;
+
+    data.battery_voltage = adc.readVoltage() * DeviderRatio;
+
+    Serial.printf("DateTime: %s\n", dt.timestamp().c_str());
     Serial.printf("Temperature: %f degC\n", temp.temperature);
     Serial.printf("Humidity: %f rH\n", humidity.relative_humidity);
 
