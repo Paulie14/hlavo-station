@@ -42,7 +42,6 @@ void setup() {
     ;
 
   gpio_install_isr_service( ESP_INTR_FLAG_IRAM);
-  
 
   Serial.println("Opening SDI-12 bus...");
   mySDI12.begin();
@@ -55,30 +54,61 @@ void setup() {
     digitalWrite(POWER_PIN, HIGH);
     delay(500);//(200);
   }
+
+  Serial.flush();
 }
 
 void loop() {
+  //Info
+  Serial.printf("Command %s:", myCommand);
   mySDI12.sendCommand(myCommand);
   delay(300);                    // wait a while for a response
   while (mySDI12.available()) {  // write the response to the screen
     Serial.write(mySDI12.read());
   }
 
+  // const char* cmd1 = "?!";
+  // const char* cmd2 = "0M!";
+  // const char* cmd3 = "0D0!";
+
+  // Address
+  Serial.printf("Command %s:", myCommand1);
   mySDI12.sendCommand(myCommand1);
+  // mySDI12.sendCommand(cmd1);
   delay(300);                    // wait a while for a response
-  Serial.print("Address: ");
+  // Serial.print("Address: ");
+  while (mySDI12.available()) {  // write the response to the screen
+  //  Serial.write(mySDI12.read());
+    char buf[25];
+    Serial.printf("%s-", itoa(mySDI12.read(), buf, 10));
+  }
+  Serial.println();
+  delay(500); 
+
+  // M7
+  Serial.printf("Command %s:", "0M7!");
+  mySDI12.sendCommand("0M7!");
+  // mySDI12.sendCommand(cmd1);
+  delay(300);                    // wait a while for a response
+  // Serial.print("Address: ");
   while (mySDI12.available()) {  // write the response to the screen
    Serial.write(mySDI12.read());
+    // char buf[25];
+    // Serial.printf("%s-", itoa(mySDI12.read(), buf, 10));
   }
+  Serial.println();
   delay(500); 
 
 
-    Serial.print("Command 0M!: ");
+  // Measure
+    Serial.printf("Command %s:", myCommand2);
     mySDI12.sendCommand(myCommand2);
+    // mySDI12.sendCommand(cmd2);
     delay(300);                    // wait a while for a response
     while (mySDI12.available()) {  // build response string
         char c = mySDI12.read();
-        if ((c != '\n') && (c != '\r')) {
+        if ((c != '\n') && (c != '\r'))
+        {
         sdiResponse += c;
         delay(10);  // 1 character ~ 7.5ms
         }
@@ -90,19 +120,25 @@ void loop() {
 
     delay(2000); 
 
+    // DATA
     Serial.print("Command 0D0!: ");
     mySDI12.sendCommand(myCommand3);
-    delay(300);                    // wait a while for a response
+    // mySDI12.sendCommand(cmd3);
+    delay(3000);                    // wait a while for a response
     
     while (mySDI12.available()) {  // build response string
         char c = mySDI12.read();
-        if ((c != '\n') && (c != '\r')) {
-        sdiResponse += c;
-        delay(10);  // 1 character ~ 7.5ms
+        if ((c != '\n') && (c != '\r'))
+        {
+          sdiResponse += c;
+          // char buf[25];
+          // Serial.printf("%s-", itoa(mySDI12.read(), buf, 10));
+          delay(20);  // 1 character ~ 7.5ms
         }
     }
     if (sdiResponse.length() > 1)
         Serial.println(sdiResponse);  // write the response to the screen
+    // Serial.println();
     mySDI12.clearBuffer();
     sdiResponse = "";  // clear the response string
 
@@ -230,5 +266,5 @@ void loop() {
 //   while (mySDI12.available()) {  // write the response to the screen
 //   Serial.write(mySDI12.read());
 //   }
-  delay(20000);  // print again in three seconds
+  delay(2000);  // print again in three seconds
 }
