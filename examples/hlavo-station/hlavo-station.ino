@@ -17,7 +17,7 @@
 // SD card IO
 #include "SD.h"
 // file handling
-#include "file_io.h"
+#include "file_info.h"
 // #endif
 
 // defnice sbernice i2C a SPI
