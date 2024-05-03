@@ -1,5 +1,8 @@
 #include <RTClib.h> // just for DateTime
 
+#define NUM_FINE_VALUES 4
+#define NUM_FINE_VALUES_TO_COLLECT 20    // 60 per 1 min
+
 class MeteoData{
 
   public:
@@ -95,6 +98,38 @@ class MeteoData{
               battery_voltage_mean, delimiter,
               battery_voltage_var);
       return csvLine;
+    }
+
+    void compute_statistics(float fineValues[][NUM_FINE_VALUES_TO_COLLECT], u16_t size_m, u16_t size_n)
+    {
+      float diff;
+      float mean[size_m];
+      float var[size_m];
+
+      for (int i = 0; i < size_m; i++) {
+        // Calculate mean
+        for (int j = 0; j < size_n; j++) {
+          mean[i] += fineValues[i][j];
+        }
+        mean[i] /= size_n;
+
+        // Calculate variance
+        for (int j = 0; j < size_n; j++) {
+          diff = fineValues[i][j] - mean[i];
+          var[i] += diff*diff;
+        }
+        var[i] /= size_n;
+      }
+
+      humidity_mean = mean[0];
+      temperature_mean = mean[1];
+      light_mean = mean[2];
+      battery_voltage_mean = mean[3];
+
+      humidity_var = var[0];
+      temperature_var = var[1];
+      light_var = var[2];
+      battery_voltage_var = var[3];
     }
 };
 
