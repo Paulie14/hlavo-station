@@ -146,7 +146,7 @@ void loop() {
     // Serial.printf("Wind direc adc:  %d\n", weather.getDirAdcValue());
     // Serial.printf("Wind direc deg:  %f\n", data.wind_direction);
     Serial.printf("Wind speed TICK: %d\n", data.wind_speed_ticks);
-    Serial.printf("Wind speed [m/s]: %.3f\n", weather.getSpeed());
+    Serial.printf("Wind speed [m/s]: %.1f\n", weather.getSpeed());
     Serial.printf("Rain gauge TICK: %d\n", data.raingauge_ticks);
     // Serial.printf("Rain gauge [ml/min]: %d\n", data.raingauge_ticks);
     // Serial.printf("Battery [V]: %f\n", data.battery_voltage);

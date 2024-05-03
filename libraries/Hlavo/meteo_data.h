@@ -1,7 +1,8 @@
 #include <RTClib.h> // just for DateTime
 
 #define NUM_FINE_VALUES 4
-#define NUM_FINE_VALUES_TO_COLLECT 20    // 60 per 1 min
+#define FINE_DATA_BUFSIZE 20    // 60 per 1 min
+#define METEO_DATA_BUFSIZE 20            // 15 per 15 min
 
 class MeteoData{
 
@@ -25,7 +26,7 @@ class MeteoData{
     static const char * delimiter;
 
     static char* headerToCsvLine(char* csvLine) {
-        const int n_columns = 8;
+        const int n_columns = 12;
         const char* columnNames[] = {
           "DateTime",
           "WindDirection",
@@ -100,19 +101,21 @@ class MeteoData{
       return csvLine;
     }
 
-    void compute_statistics(float fineValues[][NUM_FINE_VALUES_TO_COLLECT], u16_t size_m, u16_t size_n)
+    void compute_statistics(float fineValues[][FINE_DATA_BUFSIZE], u16_t size_m, u16_t size_n)
     {
       float diff;
       float mean[size_m];
       float var[size_m];
 
       for (int i = 0; i < size_m; i++) {
+        mean[i] = 0;
         // Calculate mean
         for (int j = 0; j < size_n; j++) {
           mean[i] += fineValues[i][j];
         }
         mean[i] /= size_n;
 
+        var[i] = 0;
         // Calculate variance
         for (int j = 0; j < size_n; j++) {
           diff = fineValues[i][j] - mean[i];
