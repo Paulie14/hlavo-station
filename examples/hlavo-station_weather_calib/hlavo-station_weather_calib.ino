@@ -99,19 +99,20 @@ void setup() {
       return;
   }
 
-  char csvLine[150];
-  FileInfo datafile(SD, data_meteo_filename);
-  datafile.remove();
-  // datafile.read();
-  if(!datafile.exists())
-    datafile.write(MeteoData::headerToCsvLine(csvLine));
+  // char csvLine[150];
+  // FileInfo datafile(SD, data_meteo_filename);
+  // datafile.remove();
+  // // datafile.read();
+  // if(!datafile.exists())
+  //   datafile.write(MeteoData::headerToCsvLine(csvLine));
 
   Serial.println("setup completed.");
   Serial.println("--------------------------");
 }
 
 
-MeteoData data;
+unsigned int speed_ticks = 0;
+unsigned int rain_ticks = 0;
 
 /*********************************************** LOOP ***********************************************/ 
 void loop() {
@@ -129,8 +130,8 @@ void loop() {
     
     // data.datetime = dt;
     // data.wind_direction = weather.getDirection();
-    data.wind_speed_ticks += weather.getSpeedTicks();
-    data.raingauge_ticks += weather.getRainTicks();
+    speed_ticks += weather.getSpeedTicks();
+    rain_ticks += weather.getRainTicks();
 
     // data.temperature = temp.temperature;
     // data.humidity = humidity.temperature;
@@ -145,10 +146,10 @@ void loop() {
 
     // Serial.printf("Wind direc adc:  %d\n", weather.getDirAdcValue());
     // Serial.printf("Wind direc deg:  %f\n", data.wind_direction);
-    Serial.printf("Wind speed TICK: %d\n", data.wind_speed_ticks);
-    Serial.printf("Wind speed [m/s]: %.1f\n", weather.getSpeed());
-    Serial.printf("Rain gauge TICK: %d\n", data.raingauge_ticks);
-    // Serial.printf("Rain gauge [ml/min]: %d\n", data.raingauge_ticks);
+    Serial.printf("Wind speed TICK: %d\n", speed_ticks);
+    Serial.printf("Wind speed [m/s]: %.2f\n", weather.getSpeed());
+    Serial.printf("Rain gauge TICK: %d\n", rain_ticks);
+    Serial.printf("Rain gauge [mm/min]: %.2f\n", weather.getRain());
     // Serial.printf("Battery [V]: %f\n", data.battery_voltage);
 
     // char csvLine[150];
