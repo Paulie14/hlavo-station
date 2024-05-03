@@ -16,6 +16,9 @@ Weather station test.
 ### hlavo-station_SD
 Minimalistic test. Reading and writing to a file on SD card.
 
+### hlavo-station_weather_calib
+Auxiliary weather station test for calibration of wind speed and raingauge.
+
 ### hlavo-station_weather_full
 Weather station full working test.
 - adds real time clock (RTC)
