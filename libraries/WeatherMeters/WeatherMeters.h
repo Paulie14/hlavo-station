@@ -244,7 +244,7 @@ template <uint8_t N>
 float WeatherMeters<N>::WeatherMeters::getSpeed() {
     // divide by 4 due to CHANGE mode (2ticks) and 2 changes per rotation
     // float res = (static_cast<float>(_anemometer_sum) / static_cast<float>(_period)) * WIND_SPEED_RES;
-    float res = (static_cast<float>(_anemometer_sum) / 4.0f / static_cast<float>(_period)) * WIND_SPEED_RES;
+    float res = static_cast<float>(_anemometer_sum) / 4.0f / static_cast<float>(_period) * WIND_SPEED_RES;
 
     if (_period == 0) {
         res /= _timer_passed;
@@ -273,7 +273,10 @@ unsigned int WeatherMeters<N>::WeatherMeters::getDirAdcValue() {
 template <uint8_t N>
 float WeatherMeters<N>::WeatherMeters::getRain() {
     // divide by 2 due to CHANGE mode (2ticks) per click
-    float res = static_cast<float>(_rain_sum) / 2 * RAIN_GAUGE_RES;
+    // float res = static_cast<float>(_rain_sum) / 2 * RAIN_GAUGE_RES;
+    // convert mm to mm/min: / period *60
+    // convert mm/min to ml/m2/min: * 1000
+    float res = static_cast<float>(_rain_sum) / 2.0f / static_cast<float>(_period)*60 * RAIN_GAUGE_RES;
 
     if (_period == 0) {
         _rain_sum = 0;

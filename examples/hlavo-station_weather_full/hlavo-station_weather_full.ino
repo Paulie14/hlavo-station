@@ -117,8 +117,10 @@ void meteo_data_collect()
   if (weather.gotData())
   {
     data.wind_direction = weather.getDirection();
-    data.wind_speed_ticks = weather.getSpeedTicks();
-    data.raingauge_ticks = weather.getRainTicks();
+    data.wind_speed = weather.getSpeed();
+    data.raingauge = weather.getRain();
+    Serial.printf("%d:   %.2f,  %d  %.2f,  %d  %.2f\n", num_meteo_data_collected,
+    data.wind_direction, weather.getSpeedTicks(), data.wind_speed, weather.getRainTicks(), data.raingauge);
   }
 
   // write data into buffer
