@@ -24,7 +24,8 @@ SOFTWARE.
 #include <MovingAverageAngle.h>
 
 #define RAIN_GAUGE_RES 0.2794  // mm
-#define WIND_SPEED_RES 2.4  // km/h
+// #define WIND_SPEED_RES 2.4  // km/h
+#define WIND_SPEED_RES 0.666666666f // m/s
 #define DEBOUNCE_TRESHOLD 50 // Debounce threshold in milliseconds
 
 #if WM_ADC_RESOLUTION == 4096 || defined(STM32_MCU_SERIES) || defined(ARDUINO_ARCH_ESP32)
@@ -241,7 +242,9 @@ float WeatherMeters<N>::WeatherMeters::getDir() {
 
 template <uint8_t N>
 float WeatherMeters<N>::WeatherMeters::getSpeed() {
-    float res = (static_cast<float>(_anemometer_sum) / static_cast<float>(_period)) * WIND_SPEED_RES;
+    // divide by 4 due to CHANGE mode (2ticks) and 2 changes per rotation
+    // float res = (static_cast<float>(_anemometer_sum) / static_cast<float>(_period)) * WIND_SPEED_RES;
+    float res = (static_cast<float>(_anemometer_sum) / 4.0f / static_cast<float>(_period)) * WIND_SPEED_RES;
 
     if (_period == 0) {
         res /= _timer_passed;
@@ -269,7 +272,8 @@ unsigned int WeatherMeters<N>::WeatherMeters::getDirAdcValue() {
 
 template <uint8_t N>
 float WeatherMeters<N>::WeatherMeters::getRain() {
-    float res = static_cast<float>(_rain_sum) * RAIN_GAUGE_RES;
+    // divide by 2 due to CHANGE mode (2ticks) per click
+    float res = static_cast<float>(_rain_sum) / 2 * RAIN_GAUGE_RES;
 
     if (_period == 0) {
         _rain_sum = 0;
