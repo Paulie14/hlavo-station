@@ -9,11 +9,14 @@ class PR2_sensor
     SDI12 _SDI12;
   public:
     PR2_sensor(int8_t dataPin, uint8_t verbose=0)
-    : _SDI12(_dataPin), _verbose(verbose)
-    {}
+    : _dataPin(dataPin), _SDI12(dataPin), _verbose(verbose)
+    {
+    }
 
     void begin()
     {
+      Serial.printf("SDI12 datapin: %d\n", _SDI12.getDataPin());
+      // Serial.println(_verbose);
       _SDI12.begin();
     }
     
@@ -65,7 +68,7 @@ class PR2_sensor
 
     String measureConcurrent(String measure_command, uint8_t address)
     {
-        _SDI12.clearBuffer();
+        // _SDI12.clearBuffer();
 
         measure_command = String(address) + measure_command + "!";
         String measureResponse = requestAndReadData(measure_command);  // Command to take a measurement

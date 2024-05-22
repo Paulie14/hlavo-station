@@ -1,7 +1,6 @@
 /**
  */
 
-// #include <SDI12.h>
 #include <esp_intr_alloc.h>
 #include "pr2_sensor.h"
 
@@ -10,8 +9,6 @@
 #define POWER_PIN 47       /*!< The sensor power pin (or -1 if not switching power) */
 
 /** Define the SDI-12 bus */
-// SDI12 mySDI12(PR2_DATA_PIN);
-
 PR2_sensor pr2(PR2_DATA_PIN, 3);
 
 void setup() {
@@ -22,11 +19,8 @@ void setup() {
   gpio_install_isr_service( ESP_INTR_FLAG_IRAM);
 
   Serial.println("Opening SDI-12 bus...");
-  // mySDI12.begin();
   pr2.begin();
   delay(500);  // allow things to settle
-  String si = pr2.requestAndReadData("?I!", true);  // Command to get sensor info
-  Serial.println(si);
 
   // Power the sensors;
   if (POWER_PIN > 0) {
@@ -38,7 +32,6 @@ void setup() {
 
   Serial.flush();
 }
-
 
 bool human_print = true;
 void loop() {
