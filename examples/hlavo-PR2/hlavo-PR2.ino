@@ -34,30 +34,63 @@ void setup() {
 }
 
 bool human_print = true;
+void print_values(String field_name, float* values, uint8_t n_values)
+{
+  Serial.printf("%-20s", field_name + ':');
+  for(int i=0; i<n_values; i++)
+    Serial.printf("%.4f  ", values[i]);
+  Serial.println();
+}
+
 void loop() {
 
   String sensorResponse = "";
 
-  sensorResponse = pr2.measureConcurrent("C",0);
-  //sensorResponse = sensorResponse.substring(3); // first 3 characters are <address><CR><LF> => remove
+  delay(300);
+
+  String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
+  // Serial.println(si);
+
+  delay(300);
+
+  // sensorResponse = pr2.measureConcurrent("C", 0);
   // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  if(human_print) Serial.print("permitivity:    ");
-  Serial.println(sensorResponse);
+  // if(human_print) Serial.print("permitivity:    ");
+  // Serial.println(sensorResponse);
 
-  sensorResponse = pr2.measureConcurrent("C1",0);
-  sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  if(human_print) Serial.print("soil moisture:  ");
-  Serial.println(sensorResponse);
+  // sensorResponse = pr2.measureConcurrent("C1",0);
+  // // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
+  // if(human_print) Serial.print("soil moisture:  ");
+  // Serial.println(sensorResponse);
 
-  sensorResponse = pr2.measureConcurrent("C8",0);
-  sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  if(human_print) Serial.print("millivolts:     ");
-  Serial.println(sensorResponse);
+  // sensorResponse = pr2.measureConcurrent("C8",0);
+  // // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
+  // if(human_print) Serial.print("millivolts:     ");
+  // Serial.println(sensorResponse);
 
-  sensorResponse = pr2.measureConcurrent("C9",0);
-  sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  if(human_print) Serial.print("raw ADC:        ");
-  Serial.println(sensorResponse);
+  // sensorResponse = pr2.measureConcurrent("C9",0);
+  // // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
+  // if(human_print) Serial.print("raw ADC:        ");
+  // Serial.println(sensorResponse);
+
+  float values[10];
+  uint8_t n_values = 0;
+
+  sensorResponse = pr2.measureConcurrent("C", 0, values, &n_values);
+  print_values("permitivity", values, n_values);
+
+  sensorResponse = pr2.measureConcurrent("C1", 0, values, &n_values);
+  print_values("moisture", values, n_values);
+
+  sensorResponse = pr2.measureConcurrent("C8", 0, values, &n_values);
+  print_values("millivolts", values, n_values);
+
+  sensorResponse = pr2.measureConcurrent("C9", 0, values, &n_values);
+  print_values("raw ADC", values, n_values);
+
+
+
+
 
   // sensorResponse = requestAndReadData("?I!", true);  // Command to get sensor info
   // //Serial.println(sensorResponse);
