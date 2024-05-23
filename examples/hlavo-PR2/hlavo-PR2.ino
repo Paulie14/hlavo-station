@@ -36,7 +36,7 @@ void setup() {
 bool human_print = true;
 void print_values(String field_name, float* values, uint8_t n_values)
 {
-  Serial.printf("%-20s", field_name + ':');
+  Serial.printf("%-25s", (field_name + ':').c_str());
   for(int i=0; i<n_values; i++)
     Serial.printf("%.4f  ", values[i]);
   Serial.println();
@@ -80,10 +80,22 @@ void loop() {
   print_values("permitivity", values, n_values);
 
   sensorResponse = pr2.measureConcurrent("C1", 0, values, &n_values);
-  print_values("moisture", values, n_values);
+  print_values("soil moisture mineral", values, n_values);
+
+  sensorResponse = pr2.measureConcurrent("C2", 0, values, &n_values);
+  print_values("soil moisture organic", values, n_values);
+
+  sensorResponse = pr2.measureConcurrent("C3", 0, values, &n_values);
+  print_values("soil moisture mineral (%)", values, n_values);
+
+  sensorResponse = pr2.measureConcurrent("C4", 0, values, &n_values);
+  print_values("soil moisture mineral (%)", values, n_values);
+
+  sensorResponse = pr2.measureConcurrent("C7", 0, values, &n_values);
+  print_values("millivolts", values, n_values);
 
   sensorResponse = pr2.measureConcurrent("C8", 0, values, &n_values);
-  print_values("millivolts", values, n_values);
+  print_values("millivolts uncalibrated", values, n_values);
 
   sensorResponse = pr2.measureConcurrent("C9", 0, values, &n_values);
   print_values("raw ADC", values, n_values);
