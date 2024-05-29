@@ -1,6 +1,6 @@
 #include <SDI12.h>
 
-class PR2_sensor
+class PR2Comm
 {
   private:
     static const uint16_t _meaure_delay = 2200; // waiting between measure request and data request
@@ -14,7 +14,7 @@ class PR2_sensor
     char msg_buf[max_msg_length];
 
   public:
-    PR2_sensor(int8_t dataPin, uint8_t verbose=0)
+    PR2Comm(int8_t dataPin, uint8_t verbose=0)
     : _dataPin(dataPin), _SDI12(dataPin), _verbose(verbose)
     {
     }
@@ -186,6 +186,13 @@ class PR2_sensor
         measure_command = String(address) + measure_command + "!";
         requestAndReadData(measure_command.c_str(), &n_bytes);  // Command to take a measurement
 
+
+        if(n_bytes <= 5)
+        {
+          Serial.println("ERROR: Not date received!");
+          *n_values = 0;
+          return nullptr;
+        }
         // for(int i=0; i<n_bytes; i++)
         //   Serial.printf("%02X ",msg_buf[i]);
         // Serial.println();
@@ -203,7 +210,8 @@ class PR2_sensor
         requestAndReadData(data_command.c_str(), &n_bytes);  // Command to take a measurement
 
         char* msg_start = findFirstDigit(msg_buf, n_bytes);
-        Serial.printf("cleared msg: %s\n", msg_start);
+        if(_verbose>0)
+          Serial.printf("cleared msg: %s\n", msg_start);
         
         uint8_t parsed_values = 0; // Number of values successfully parsed
         char* msg_ptr;
@@ -230,6 +238,14 @@ class PR2_sensor
         return msg_start;
     }
 
+    void print_values(String field_name, float* values, uint8_t n_values)
+    {
+      Serial.printf("%-25s", (field_name + ':').c_str());
+      for(int i=0; i<n_values; i++)
+        Serial.printf("%.4f  ", values[i]);
+      Serial.println();
+    }
+
   private:
     void print_response(String cmd, String response)
     {
@@ -248,7 +264,8 @@ class PR2_sensor
           if (*str >= '0' && *str <= '9') {
               return str;  // Return the pointer to the current character
           }
-          Serial.printf("skipping %X\n", *str);
+          if(_verbose >0)
+            Serial.printf("skipping %X\n", *str);
           str++;  // Move to the next character
       }
       return nullptr;  // Return nullptr if no digit is found
@@ -261,7 +278,8 @@ class PR2_sensor
           if (*str >= '0' && *str <= '9') {
               return str;  // Return the pointer to the current character
           }
-          Serial.printf("skipping %X\n", *str);
+          if(_verbose >0)
+            Serial.printf("skipping %X\n", *str);
           str++;  // Move to the next character
       }
       return nullptr;  // Return nullptr if no digit is found

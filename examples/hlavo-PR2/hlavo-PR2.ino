@@ -2,14 +2,14 @@
  */
 
 #include <esp_intr_alloc.h>
-#include "pr2_sensor.h"
+#include "pr2_comm.h"
 
 #define SERIAL_BAUD 115200 /*!< The baud rate for the output serial port */
 #define PR2_DATA_PIN 4         /*!< The pin of the SDI-12 data bus */
 #define POWER_PIN 47       /*!< The sensor power pin (or -1 if not switching power) */
 
 /** Define the SDI-12 bus */
-PR2_sensor pr2(PR2_DATA_PIN, 3);
+PR2Comm pr2(PR2_DATA_PIN, 3);
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
@@ -30,28 +30,64 @@ void setup() {
     delay(500);
   }
 
+  // CHANGE ADDRESS
+  // String si = pr2.requestAndReadData("0A1!", false);  // Command to get sensor info
+  // String si = pr2.requestAndReadData("1A0!", false);  // Command to get sensor info
+
   Serial.flush();
 }
 
 bool human_print = true;
-void print_values(String field_name, float* values, uint8_t n_values)
+
+
+void read_pr2(uint8_t address)
 {
-  Serial.printf("%-25s", (field_name + ':').c_str());
-  for(int i=0; i<n_values; i++)
-    Serial.printf("%.4f  ", values[i]);
-  Serial.println();
+  float values[10];
+  uint8_t n_values = 0;
+  String sensorResponse = "";
+
+  delay(300);
+  String info_cmd = String(address) + "I!";
+  String si = pr2.requestAndReadData(info_cmd, false);  // Command to get sensor info
+  delay(300);
+
+  sensorResponse = pr2.measureConcurrent("C", address, values, &n_values);
+  pr2.print_values("permitivity", values, n_values);
+
+  // sensorResponse = pr2.measureConcurrent("C1", address, values, &n_values);
+  // pr2.print_values("soil moisture mineral", values, n_values);
+
+  // sensorResponse = pr2.measureConcurrent("C2", address, values, &n_values);
+  // pr2.print_values("soil moisture organic", values, n_values);
+
+  // sensorResponse = pr2.measureConcurrent("C3", address, values, &n_values);
+  // pr2.print_values("soil moisture mineral (%)", values, n_values);
+
+  // sensorResponse = pr2.measureConcurrent("C4", address, values, &n_values);
+  // pr2.print_values("soil moisture mineral (%)", values, n_values);
+
+  // sensorResponse = pr2.measureConcurrent("C7", address, values, &n_values);
+  // pr2.print_values("millivolts", values, n_values);
+
+  // sensorResponse = pr2.measureConcurrent("C8", address, values, &n_values);
+  // pr2.print_values("millivolts uncalibrated", values, n_values);
+
+  sensorResponse = pr2.measureConcurrent("C9", address, values, &n_values);
+  pr2.print_values("raw ADC", values, n_values);
 }
 
 void loop() {
 
   String sensorResponse = "";
 
-  delay(300);
+  // delay(300);
 
-  String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
-  // Serial.println(si);
+  // String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
 
-  delay(300);
+  // // String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
+  // // Serial.println(si);
+
+  // delay(300);
 
   // sensorResponse = pr2.measureConcurrent("C", 0);
   // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
@@ -73,33 +109,11 @@ void loop() {
   // if(human_print) Serial.print("raw ADC:        ");
   // Serial.println(sensorResponse);
 
-  float values[10];
-  uint8_t n_values = 0;
-
-  sensorResponse = pr2.measureConcurrent("C", 0, values, &n_values);
-  print_values("permitivity", values, n_values);
-
-  sensorResponse = pr2.measureConcurrent("C1", 0, values, &n_values);
-  print_values("soil moisture mineral", values, n_values);
-
-  sensorResponse = pr2.measureConcurrent("C2", 0, values, &n_values);
-  print_values("soil moisture organic", values, n_values);
-
-  sensorResponse = pr2.measureConcurrent("C3", 0, values, &n_values);
-  print_values("soil moisture mineral (%)", values, n_values);
-
-  sensorResponse = pr2.measureConcurrent("C4", 0, values, &n_values);
-  print_values("soil moisture mineral (%)", values, n_values);
-
-  sensorResponse = pr2.measureConcurrent("C7", 0, values, &n_values);
-  print_values("millivolts", values, n_values);
-
-  sensorResponse = pr2.measureConcurrent("C8", 0, values, &n_values);
-  print_values("millivolts uncalibrated", values, n_values);
-
-  sensorResponse = pr2.measureConcurrent("C9", 0, values, &n_values);
-  print_values("raw ADC", values, n_values);
-
+  
+  Serial.println("---------------------------------------------------- address 0");
+  read_pr2(0);
+  Serial.println("---------------------------------------------------- address 1");
+  read_pr2(1);
 
 
 
