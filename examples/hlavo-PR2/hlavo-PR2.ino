@@ -1,8 +1,9 @@
 /**
  */
-
+#include <SPI.h>
 #include <esp_intr_alloc.h>
 #include "pr2_comm.h"
+#include "pr2_data.h"
 
 #define SERIAL_BAUD 115200 /*!< The baud rate for the output serial port */
 #define PR2_DATA_PIN 4         /*!< The pin of the SDI-12 data bus */
@@ -40,6 +41,7 @@ void setup() {
 bool human_print = true;
 
 
+// Sequential "blocking" read
 void read_pr2(uint8_t address)
 {
   float values[10];
@@ -51,32 +53,50 @@ void read_pr2(uint8_t address)
   String si = pr2.requestAndReadData(info_cmd, false);  // Command to get sensor info
   delay(300);
 
-  sensorResponse = pr2.measureConcurrent("C", address, values, &n_values);
+  sensorResponse = pr2.measureRequestAndRead("C", address, values, &n_values);
   pr2.print_values("permitivity", values, n_values);
 
-  // sensorResponse = pr2.measureConcurrent("C1", address, values, &n_values);
-  // pr2.print_values("soil moisture mineral", values, n_values);
+  sensorResponse = pr2.measureRequestAndRead("C1", address, values, &n_values);
+  pr2.print_values("soil moisture mineral", values, n_values);
 
-  // sensorResponse = pr2.measureConcurrent("C2", address, values, &n_values);
+  // sensorResponse = pr2.measureRequestAndRead("C2", address, values, &n_values);
   // pr2.print_values("soil moisture organic", values, n_values);
 
-  // sensorResponse = pr2.measureConcurrent("C3", address, values, &n_values);
+  // sensorResponse = pr2.measureRequestAndRead("C3", address, values, &n_values);
   // pr2.print_values("soil moisture mineral (%)", values, n_values);
 
-  // sensorResponse = pr2.measureConcurrent("C4", address, values, &n_values);
+  // sensorResponse = pr2.measureRequestAndRead("C4", address, values, &n_values);
   // pr2.print_values("soil moisture mineral (%)", values, n_values);
 
-  // sensorResponse = pr2.measureConcurrent("C7", address, values, &n_values);
+  // sensorResponse = pr2.measureRequestAndRead("C7", address, values, &n_values);
   // pr2.print_values("millivolts", values, n_values);
 
-  // sensorResponse = pr2.measureConcurrent("C8", address, values, &n_values);
+  // sensorResponse = pr2.measureRequestAndRead("C8", address, values, &n_values);
   // pr2.print_values("millivolts uncalibrated", values, n_values);
 
-  sensorResponse = pr2.measureConcurrent("C9", address, values, &n_values);
+  sensorResponse = pr2.measureRequestAndRead("C9", address, values, &n_values);
   pr2.print_values("raw ADC", values, n_values);
 }
 
+
+// PR2Reader pr2_reader(pr2, 0);
+
+
+// Reading sequentially from all sensors withou blocking loop due to waiting.
+const uint8_t n_pr2_sensors = 2;
+const uint8_t pr2_addresses[n_pr2_sensors] = {0,1};  // sensor addresses on SDI-12
+PR2Reader pr2_readers[2] = {
+  PR2Reader(pr2, pr2_addresses[0]),
+  PR2Reader(pr2, pr2_addresses[1])
+};
+uint8_t iadd = 0;
+
+
+
 void loop() {
+
+  delay(300);
+  Serial.println("TICK");
 
   String sensorResponse = "";
 
@@ -89,33 +109,57 @@ void loop() {
 
   // delay(300);
 
-  // sensorResponse = pr2.measureConcurrent("C", 0);
-  // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  // if(human_print) Serial.print("permitivity:    ");
-  // Serial.println(sensorResponse);
 
-  // sensorResponse = pr2.measureConcurrent("C1",0);
-  // // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  // if(human_print) Serial.print("soil moisture:  ");
-  // Serial.println(sensorResponse);
+  // Serial.println("---------------------------------------------------- address 0");
+  // read_pr2(0);
+  // Serial.println("---------------------------------------------------- address 1");
+  // read_pr2(1);
 
-  // sensorResponse = pr2.measureConcurrent("C8",0);
-  // // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  // if(human_print) Serial.print("millivolts:     ");
-  // Serial.println(sensorResponse);
+  {
+    pr2_readers[iadd].TryRequest();
+    pr2_readers[iadd].TryRead();
+    if(pr2_readers[iadd].finished)
+    {
+      char csvLine[200];
+      Serial.println(pr2_readers[iadd].data.dataToCsvLine(csvLine));
+      pr2_readers[iadd].Reset();
 
-  // sensorResponse = pr2.measureConcurrent("C9",0);
-  // // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  // if(human_print) Serial.print("raw ADC:        ");
-  // Serial.println(sensorResponse);
+      iadd++;
+      if(iadd == 2)
+      {
+        iadd = 0;
+      }
+    }
+  }
 
+  {
+    // pr2_reader.TryRequest();
+    // pr2_reader.TryRead();
+    // if(pr2_reader.finished)
+    // {
+    //   char csvLine[200];
+    //   Serial.println(pr2_reader.data.dataToCsvLine(csvLine));
+    //   pr2_reader.Reset();
+    // }
+  }
+
+  {
+    // uint8_t address = 0;
+    // float values[10];
+    // uint8_t n_values = 0;
+    // String sensorResponse = "";
+
+    // if(!pr2_delay_timer.running)
+    //   sensorResponse = pr2.measureRequest("C", address);
+    // if(pr2_delay_timer())
+    // {
+    //   sensorResponse = pr2.measureRead(address, values, &n_values);
+    //   pr2.print_values("permitivity", values, n_values);
+    // }
+  }
+
+  // Serial.println("---------------------------------------------------- address 1");
   
-  Serial.println("---------------------------------------------------- address 0");
-  read_pr2(0);
-  Serial.println("---------------------------------------------------- address 1");
-  read_pr2(1);
-
-
 
 
   // sensorResponse = requestAndReadData("?I!", true);  // Command to get sensor info
@@ -388,5 +432,5 @@ void loop() {
 //   while (mySDI12.available()) {  // write the response to the screen
 //   Serial.write(mySDI12.read());
 //   }
-  delay(2000);  // print again in three seconds
+  // delay(2000);  // print again in three seconds
 }

@@ -66,7 +66,14 @@ void IRAM_ATTR intPeriod() { weather.intTimer(); }
 PR2Comm pr2(PR2_DATA_PIN, 0);  // (data_pin, verbose)
 const uint8_t n_pr2_sensors = 2;
 const uint8_t pr2_addresses[n_pr2_sensors] = {0,1};  // sensor addresses on SDI-12
+PR2Reader pr2_readers[2] = {        // readers enable reading all sensors without blocking loop
+  PR2Reader(pr2, pr2_addresses[0]),
+  PR2Reader(pr2, pr2_addresses[1])
+};
 const char* data_pr2_filenames[n_pr2_sensors] = {"/pr2_a0.csv", "/pr2_a1.csv"};
+
+uint8_t iss = 0;  // current sensor reading
+bool pr2_all_finished = false;
 
 /****************************************** DATA COLLECTION ******************************************/
 // L1 timer data buffer
@@ -109,7 +116,7 @@ void fine_data_collect()
 void meteo_data_collect()
 {
   DateTime dt = rtc_clock.now();
-  Serial.printf("DateTime: %s. Writing MeteoData.\n", dt.timestamp().c_str());
+  Serial.printf("DateTime: %s. Buffering MeteoData.\n", dt.timestamp().c_str());
 
   // should not happen
   if(num_meteo_data_collected >= METEO_DATA_BUFSIZE)
@@ -180,11 +187,11 @@ void collect_and_write_PR2(uint8_t sid)
   Serial.printf("--------------- collect PR2 [%d] a%d\n", sid, address);
   data.datetime = rtc_clock.now();
 
-  sensorResponse = pr2.measureConcurrent("C", address, values, &n_values);
+  sensorResponse = pr2.measureRequestAndRead("C", address, values, &n_values);
   pr2.print_values("permitivity", values, n_values);
   data.setPermitivity(values, n_values);
 
-  sensorResponse = pr2.measureConcurrent("C1", address, values, &n_values);
+  sensorResponse = pr2.measureRequestAndRead("C1", address, values, &n_values);
   pr2.print_values("soil moisture mineral", values, n_values);
   data.setSoilMoisture(values, n_values);
 
@@ -203,7 +210,7 @@ void collect_and_write_PR2(uint8_t sid)
   // sensorResponse = pr2.measureConcurrent("C8", address, values, &n_values);
   // pr2.print_values("millivolts uncalibrated", values, n_values);
 
-  sensorResponse = pr2.measureConcurrent("C9", address, values, &n_values);
+  sensorResponse = pr2.measureRequestAndRead("C9", address, values, &n_values);
   pr2.print_values("raw ADC", values, n_values);
   data.setRaw_ADC(&values[1], n_values-1);  // skip zero channel
 
@@ -223,6 +230,42 @@ void collect_and_write_PR2(uint8_t sid)
   file.close();
 
   Serial.println("PR2 data written.");
+}
+
+void collect_and_write_PR2()
+{
+  pr2_readers[iss].TryRequest();
+  pr2_readers[iss].TryRead();
+  if(pr2_readers[iss].finished)
+  {
+    DateTime dt = rtc_clock.now();
+    pr2_readers[iss].data.datetime = dt;
+    Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
+
+    File file = SD.open(data_pr2_filenames[iss], FILE_APPEND);
+    if(!file){
+        Serial.printf("Failed to open file for appending: %s\n", data_pr2_filenames[iss]);
+    }
+    else
+    {
+      char csvLine[200];
+      pr2_readers[iss].data.dataToCsvLine(csvLine);
+      bool res = file.print(csvLine);
+      if(!res){
+          Serial.printf("Append failed: %s\n", data_pr2_filenames[iss]);
+      }
+    }
+    file.close();
+    // Serial.println("PR2 data written.");
+
+    pr2_readers[iss].Reset();
+    iss++;
+    if(iss == 2)
+    {
+      iss = 0;
+      pr2_all_finished = true;
+    }
+  }
 }
 
 /*********************************************** SETUP ***********************************************/ 
@@ -305,7 +348,7 @@ void setup() {
 
   Serial.println("setup completed.");
   Serial.println(F("Start loop " __FILE__ " " __DATE__ " " __TIME__));
-  Serial.println("--------------------------");
+  Serial.println("=======================================================");
 
   // synchronize timers after setup
   timer_L3.reset(true);
@@ -322,6 +365,7 @@ void loop() {
   if(timer_L1())
   {
     // Serial.printf("L1 tick\n");
+    Serial.println("-------------------------- L1 TICK --------------------------");
     fine_data_collect();
   }
 
@@ -346,10 +390,11 @@ void loop() {
     // Serial.printf("Battery [V]: %f\n", adc.readVoltage() * DeviderRatio);
 
     meteo_data_collect();
-
     weather.resetGotData();
-    Serial.println("--------------------------");
   }
+
+  if(!pr2_all_finished)
+    collect_and_write_PR2();
 
   // read value to buffer at fine time scale
   if(timer_L3())
@@ -359,16 +404,17 @@ void loop() {
 
     // collect_and_write_PR2(0);
     // collect_and_write_PR2(1);
+    pr2_all_finished = false;
 
     // TEST read data from CSV
     {
       FileInfo datafile(SD, data_meteo_filename);
       datafile.read();
     }
-    // for(int i=0; i<n_pr2_sensors; i++)
-    // {
-    //   FileInfo datafile(SD, data_pr2_filenames[i]);
-    //   datafile.read();
-    // }
+    for(int i=0; i<n_pr2_sensors; i++)
+    {
+      FileInfo datafile(SD, data_pr2_filenames[i]);
+      datafile.read();
+    }
   }
 }
