@@ -93,7 +93,7 @@ class PR2Data{
         strcat(csvLine, number);
       }
       // last value without delimiter
-      sprintf(number,"%.4f\n", raw_ADC[NUM_VALUES-1]);
+      sprintf(number,"%.0f\n", raw_ADC[NUM_VALUES-1]);
       strcat(csvLine, number);
       // strcat(csvLine,"\n");
       
