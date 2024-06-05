@@ -23,7 +23,9 @@ SOFTWARE.
 
 #include <MovingAverageAngle.h>
 
-#define RAIN_GAUGE_RES 0.2794  // mm
+// #define RAIN_GAUGE_RES 0.2794  // mm - original value without extension kit
+#define RAIN_GAUGE_RES_MM 0.111316  // mm /2tick
+#define RAIN_GAUGE_RES_ML 0.844595  // ml /tick
 // #define WIND_SPEED_RES 2.4  // km/h
 #define WIND_SPEED_RES 0.666666666f // m/s
 #define DEBOUNCE_TRESHOLD 50 // Debounce threshold in milliseconds
@@ -99,7 +101,8 @@ class WeatherMeters {
     float adcToDir(uint16_t value);
     float getDir();
     float getSpeed();
-    float getRain();
+    float getRain_mm();
+    float getRain_ml();
     unsigned int getSpeedTicks();
     unsigned int getRainTicks();
     unsigned int getDirAdcValue();
@@ -271,12 +274,32 @@ unsigned int WeatherMeters<N>::WeatherMeters::getDirAdcValue() {
 }
 
 template <uint8_t N>
-float WeatherMeters<N>::WeatherMeters::getRain() {
+float WeatherMeters<N>::WeatherMeters::getRain_mm() {
     // divide by 2 due to CHANGE mode (2ticks) per click
     // float res = static_cast<float>(_rain_sum) / 2 * RAIN_GAUGE_RES;
     // convert mm to mm/min: / period *60
     // convert mm/min to ml/m2/min: * 1000
-    float res = static_cast<float>(_rain_sum) / 2.0f / static_cast<float>(_period)*60 * RAIN_GAUGE_RES;
+
+    // raingauge extension diameter: 13,9mm
+    // raingauge area:
+
+    float res = static_cast<float>(_rain_sum) / 2.0f / static_cast<float>(_period)*60 * RAIN_GAUGE_RES_MM;
+
+    if (_period == 0) {
+        _rain_sum = 0;
+    }
+
+    return res;
+}
+
+template <uint8_t N>
+float WeatherMeters<N>::WeatherMeters::getRain_ml() {
+    // MS kalibrace:
+    // 1000 ml ... N ticks: 1184
+    // => RAIN_GAUGE_RES_ML = 0.844595 ml/tick
+    // convert ml to ml/min: / period *60
+
+    float res = static_cast<float>(_rain_sum) / static_cast<float>(_period)*60 * RAIN_GAUGE_RES_ML;
 
     if (_period == 0) {
         _rain_sum = 0;

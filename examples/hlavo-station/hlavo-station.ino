@@ -46,7 +46,7 @@ BH1750 lightMeter;
 #define WEATHER_PERIOD 10  // data refresh in seconds (TEST 10 s, RUN 60 s)
 #define WINDVANE_PIN A0   // A0 := 1
 #define ANEMOMETER_PIN 5
-#define RAINGAUGE_PIN 6  // 10 kOhm / 10pF
+#define RAINGAUGE_PIN 6  // 10 kOhm, pullup
 #include "weather_station.h"
 #include "meteo_data.h"
 WeatherStation weather(WINDVANE_PIN, ANEMOMETER_PIN, RAINGAUGE_PIN, WEATHER_PERIOD);

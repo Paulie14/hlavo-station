@@ -149,7 +149,7 @@ void loop() {
     Serial.printf("Wind speed TICK: %d\n", speed_ticks);
     Serial.printf("Wind speed [m/s]: %.2f\n", weather.getSpeed());
     Serial.printf("Rain gauge TICK: %d\n", rain_ticks);
-    Serial.printf("Rain gauge [mm/min]: %.2f\n", weather.getRain());
+    Serial.printf("Rain gauge [ml/min]: %.2f\n", weather.getRain_ml());
     // Serial.printf("Battery [V]: %f\n", data.battery_voltage);
 
     // char csvLine[150];

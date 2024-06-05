@@ -82,8 +82,12 @@ class WeatherStation {
       return meters.getDirAdcValue();
     }
 
-    float getRain() {
-      return meters.getRain();
+    float getRain_mm() {
+      return meters.getRain_mm();
+    }
+
+    float getRain_ml() {
+      return meters.getRain_ml();
     }
 };
 
