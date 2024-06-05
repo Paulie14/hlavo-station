@@ -27,7 +27,8 @@ SOFTWARE.
 #define RAIN_GAUGE_RES_MM 0.111316  // mm /2tick
 #define RAIN_GAUGE_RES_ML 0.844595  // ml /tick
 // #define WIND_SPEED_RES 2.4  // km/h
-#define WIND_SPEED_RES 0.666666666f // m/s
+// #define WIND_SPEED_RES 0.666666666f // m/s
+#define WIND_SPEED_RES 0.31 // m/s
 #define DEBOUNCE_TRESHOLD 50 // Debounce threshold in milliseconds
 
 #if WM_ADC_RESOLUTION == 4096 || defined(STM32_MCU_SERIES) || defined(ARDUINO_ARCH_ESP32)
@@ -247,7 +248,8 @@ template <uint8_t N>
 float WeatherMeters<N>::WeatherMeters::getSpeed() {
     // divide by 4 due to CHANGE mode (2ticks) and 2 changes per rotation
     // float res = (static_cast<float>(_anemometer_sum) / static_cast<float>(_period)) * WIND_SPEED_RES;
-    float res = static_cast<float>(_anemometer_sum) / 4.0f / static_cast<float>(_period) * WIND_SPEED_RES;
+    // float res = static_cast<float>(_anemometer_sum) / 4.0f / static_cast<float>(_period) * WIND_SPEED_RES;
+    float res = static_cast<float>(_anemometer_sum) / static_cast<float>(_period) * WIND_SPEED_RES;
 
     if (_period == 0) {
         res /= _timer_passed;

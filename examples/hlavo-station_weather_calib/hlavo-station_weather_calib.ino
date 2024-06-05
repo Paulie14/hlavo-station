@@ -19,6 +19,7 @@
 #include "clock.h"
 Clock rtc_clock(rtc_SDA_PIN, rtc_SCL_PIN);
 
+DateTime dt_start;
 
 /*********************************************** BATTERY ***********************************************/
 #include "ESP32AnalogRead.h"
@@ -106,6 +107,7 @@ void setup() {
   // if(!datafile.exists())
   //   datafile.write(MeteoData::headerToCsvLine(csvLine));
 
+  dt_start = rtc_clock.now();
   Serial.println("setup completed.");
   Serial.println("--------------------------");
 }
@@ -125,8 +127,8 @@ void loop() {
     // sht4.getEvent(&humidity, &temp);
     // float light_lux = lightMeter.readLightLevel();
 
-    // DateTime dt = rtc_clock.now();
-
+    DateTime dt = rtc_clock.now();
+    TimeSpan dt_span = dt - dt_start;
     
     // data.datetime = dt;
     // data.wind_direction = weather.getDirection();
@@ -140,12 +142,15 @@ void loop() {
     // data.battery_voltage = adc.readVoltage() * DeviderRatio;
 
     // Serial.printf("DateTime: %s\n", dt.timestamp().c_str());
+    Serial.printf("TimeSpan: %d\n", dt_span.totalseconds());
+  
     // Serial.printf("Temperature: %f degC\n", temp.temperature);
     // Serial.printf("Humidity: %f rH\n", humidity.relative_humidity);
     // Serial.printf("Light: %f lx\n", light_lux);
 
     // Serial.printf("Wind direc adc:  %d\n", weather.getDirAdcValue());
     // Serial.printf("Wind direc deg:  %f\n", data.wind_direction);
+    Serial.printf("Wind speed TICK: %d\n", speed_ticks);
     Serial.printf("Wind speed TICK: %d\n", speed_ticks);
     Serial.printf("Wind speed [m/s]: %.2f\n", weather.getSpeed());
     Serial.printf("Rain gauge TICK: %d\n", rain_ticks);
