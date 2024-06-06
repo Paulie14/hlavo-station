@@ -5,7 +5,8 @@
 /** TIMERS */
 // times in milliseconds, L*... timing level
 Every timer_L1(1000); // fine timer - humidity, temperature, ...
-// L2 - hardware timer with WEATHER_PERIOD
+// L2 - hardware timer with L2_WEATHER_PERIOD in seconds (TEST 10 s, RUN 60 s)
+#define L2_WEATHER_PERIOD 10
 Every timer_L3(30000); // coarse timer - PR2 - TEST 30 s
 // Every timer_L3(900000); // coarse timer - PR2 - RUN 15 min
 
@@ -42,14 +43,12 @@ Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 BH1750 lightMeter;
 
 /****************************************** WHEATHER STATION ******************************************/
-// TODO: 60 s
-#define WEATHER_PERIOD 10  // data refresh in seconds (TEST 10 s, RUN 60 s)
 #define WINDVANE_PIN A0   // A0 := 1
 #define ANEMOMETER_PIN 5
 #define RAINGAUGE_PIN 6  // 10 kOhm, pullup
 #include "weather_station.h"
 #include "meteo_data.h"
-WeatherStation weather(WINDVANE_PIN, ANEMOMETER_PIN, RAINGAUGE_PIN, WEATHER_PERIOD);
+WeatherStation weather(WINDVANE_PIN, ANEMOMETER_PIN, RAINGAUGE_PIN, L2_WEATHER_PERIOD);
 
 // interuption
 // ICACHE_RAM_ATTR replaced by IRAM_ATTR (esp and arduino>3.0.0)
@@ -268,7 +267,7 @@ void collect_and_write_PR2()
   }
 }
 
-/*********************************************** SETUP ***********************************************/ 
+/*********************************************** SETUP ***********************************************/
 void setup() {
   Serial.begin(115200);
   while (!Serial)
@@ -276,7 +275,7 @@ void setup() {
       ; // cekani na Serial port
   }
 
-  Serial.println("HLAVO project starts.");
+  Serial.println("Starting HLAVO station setup.");
 
   // for version over 3.5 need to turn uSUP ON
   Serial.print("set power pin: "); Serial.println(PIN_ON);
@@ -346,9 +345,9 @@ void setup() {
       datafile.write(PR2Data::headerToCsvLine(csvLine));  
   }
 
-  Serial.println("setup completed.");
+  Serial.println("HLAVO station is running.");
   Serial.println(F("Start loop " __FILE__ " " __DATE__ " " __TIME__));
-  Serial.println("=======================================================");
+  Serial.println("=============================================================");
 
   // synchronize timers after setup
   timer_L3.reset(true);
