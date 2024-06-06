@@ -12,13 +12,9 @@ Every timer_L3(30000); // coarse timer - PR2 - TEST 30 s
 
 /*********************************************** SD CARD ***********************************************/
 // SD card IO
-#include "SD.h"
-// file handling
-#include "file_info.h"
+#include "CSV_handler.h"
 // SD card pin
 #define SD_CS_PIN 10
-#define data_meteo_filename "/meteo.csv"
-
 
 /************************************************* RTC *************************************************/
 // definice sbernice i2C pro RTC (real time clock)
@@ -48,6 +44,7 @@ BH1750 lightMeter;
 #define RAINGAUGE_PIN 6  // 10 kOhm, pullup
 #include "weather_station.h"
 #include "meteo_data.h"
+char data_meteo_filename[100] = "meteo.csv";
 WeatherStation weather(WINDVANE_PIN, ANEMOMETER_PIN, RAINGAUGE_PIN, L2_WEATHER_PERIOD);
 
 // interuption
@@ -69,7 +66,7 @@ PR2Reader pr2_readers[2] = {        // readers enable reading all sensors withou
   PR2Reader(pr2, pr2_addresses[0]),
   PR2Reader(pr2, pr2_addresses[1])
 };
-const char* data_pr2_filenames[n_pr2_sensors] = {"/pr2_a0.csv", "/pr2_a1.csv"};
+char data_pr2_filenames[n_pr2_sensors][100] = {"pr2_a0.csv", "pr2_a1.csv"};
 
 uint8_t iss = 0;  // current sensor reading
 bool pr2_all_finished = false;
@@ -121,12 +118,11 @@ void meteo_data_collect()
   if(num_meteo_data_collected >= METEO_DATA_BUFSIZE)
   {
     Serial.printf("Warning: Reached maximal buffer size for meteo data (%d)\n", num_meteo_data_collected);
-    all_data_write();
+    meteo_data_write();
     num_meteo_data_collected = 0;
   }
 
-  // MeteoData &data = meteoDataBuffer[num_meteo_data_collected];
-  MeteoData data;
+  MeteoData &data = meteoDataBuffer[num_meteo_data_collected];
   data.datetime = dt;
   data.compute_statistics(fineDataBuffer, NUM_FINE_VALUES, num_fine_data_collected);
 
@@ -134,13 +130,16 @@ void meteo_data_collect()
   {
     data.wind_direction = weather.getDirection();
     data.wind_speed = weather.getSpeed();
-    data.raingauge = weather.getRain();
+    data.raingauge = weather.getRain_ml();
     // Serial.printf("%d:   %.2f,  %d  %.2f,  %d  %.2f\n", num_meteo_data_collected,
     // data.wind_direction, weather.getSpeedTicks(), data.wind_speed, weather.getRainTicks(), data.raingauge);
   }
 
+  // char line[400];
+  // data.dataToCsvLine(line);
+  // Serial.println(line);
+
   // write data into buffer
-  meteoDataBuffer[num_meteo_data_collected] = data;
   num_meteo_data_collected++;
 
   // start over from the beginning of buffer
@@ -148,27 +147,15 @@ void meteo_data_collect()
 }
 
 // save the meteo data buffer to CSV
-void all_data_write()
+void meteo_data_write()
 {
-  // FileInfo datafile(SD, data_meteo_filename);
-  char csvLine[100];
-
-  File file = SD.open(data_meteo_filename, FILE_APPEND);
-  if(!file){
-      Serial.println("Failed to open file for appending");
+  // Fill the base class pointer array with addresses of derived class objects
+  DataBase* dbPtr[num_meteo_data_collected];
+  for (int i = 0; i < num_meteo_data_collected; i++) {
+      dbPtr[i] = &meteoDataBuffer[i];
   }
-  else
-  {
-    for(int i=0; i<num_meteo_data_collected; i++)
-    {
-      bool res = file.print(meteoDataBuffer[i].dataToCsvLine(csvLine));
-      if(!res){
-          Serial.println("Append failed");
-      }
-    }
-  }
-  file.close();
 
+  CSVHandler::appendData(data_meteo_filename, dbPtr, num_meteo_data_collected);
   // start over from the beginning of buffer
   num_meteo_data_collected = 0;
 }
@@ -241,21 +228,7 @@ void collect_and_write_PR2()
     pr2_readers[iss].data.datetime = dt;
     Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
 
-    File file = SD.open(data_pr2_filenames[iss], FILE_APPEND);
-    if(!file){
-        Serial.printf("Failed to open file for appending: %s\n", data_pr2_filenames[iss]);
-    }
-    else
-    {
-      char csvLine[200];
-      pr2_readers[iss].data.dataToCsvLine(csvLine);
-      bool res = file.print(csvLine);
-      if(!res){
-          Serial.printf("Append failed: %s\n", data_pr2_filenames[iss]);
-      }
-    }
-    file.close();
-    // Serial.println("PR2 data written.");
+    CSVHandler::appendData(data_pr2_filenames[iss], &(pr2_readers[iss].data));
 
     pr2_readers[iss].Reset();
     iss++;
@@ -284,6 +257,7 @@ void setup() {
 
   // clock setup
   rtc_clock.begin();
+  DateTime dt = rtc_clock.now();
 
   // weather station
   weather.setup(intAnemometer, intRaingauge, intPeriod);
@@ -327,22 +301,13 @@ void setup() {
 
   // Data files setup
   char csvLine[400];
-  // Meteo Data
-  {
-    FileInfo datafile(SD, data_meteo_filename);
-    datafile.remove();
-    // datafile.read();
-    if(!datafile.exists())
-      datafile.write(MeteoData::headerToCsvLine(csvLine));
-  }
-  // PR2 Data
-  for(int i=0; i<n_pr2_sensors; i++)
-  {
-    FileInfo datafile(SD, data_pr2_filenames[i]);
-    datafile.remove();
-    // datafile.read();
-    if(!datafile.exists())
-      datafile.write(PR2Data::headerToCsvLine(csvLine));  
+  CSVHandler::createFile(data_meteo_filename,
+                            MeteoData::headerToCsvLine(csvLine),
+                            dt);
+  for(int i=0; i<n_pr2_sensors; i++){
+    CSVHandler::createFile(data_pr2_filenames[i],
+                              PR2Data::headerToCsvLine(csvLine),
+                              dt);
   }
 
   Serial.println("HLAVO station is running.");
@@ -360,15 +325,16 @@ void loop() {
   
   weather.update();
 
-  // read value to buffer at fine time scale
+  // read values to buffer at fine time scale [fine Meteo Data]
   if(timer_L1())
   {
-    // Serial.printf("L1 tick\n");
     Serial.println("-------------------------- L1 TICK --------------------------");
     fine_data_collect();
   }
 
+  // read values to buffer at fine time scale [averaged Meteo Data]
 	if (weather.gotData()) {
+    Serial.println("-------------------------- L2 TICK --------------------------");
     // Serial.printf("L2 tick - Weather\n");
 
     // sensors_event_t humidity, temp; // promenne vlhkost a teplota
@@ -392,28 +358,24 @@ void loop() {
     weather.resetGotData();
   }
 
+  // read values from PR2 sensors when reading not finished yet
+  // and write to a file when last values received
   if(!pr2_all_finished)
     collect_and_write_PR2();
 
-  // read value to buffer at fine time scale
+  // request reading from PR2 sensors
+  // and write Meteo Data buffer to a file
   if(timer_L3())
   {
-    // Serial.printf("L3 tick\n");
-    all_data_write();
+    Serial.println("-------------------------- L3 TICK --------------------------");
+    meteo_data_write();
 
-    // collect_and_write_PR2(0);
-    // collect_and_write_PR2(1);
     pr2_all_finished = false;
 
     // TEST read data from CSV
-    {
-      FileInfo datafile(SD, data_meteo_filename);
-      datafile.read();
-    }
-    for(int i=0; i<n_pr2_sensors; i++)
-    {
-      FileInfo datafile(SD, data_pr2_filenames[i]);
-      datafile.read();
+    CSVHandler::printFile(data_meteo_filename);
+    for(int i=0; i<n_pr2_sensors; i++){
+      CSVHandler::printFile(data_pr2_filenames[i]);
     }
   }
 }

@@ -1,14 +1,15 @@
+# pragma once
+
 #include <RTClib.h> // just for DateTime
+#include "data_base.h"
 
 #define NUM_FINE_VALUES 4
-#define FINE_DATA_BUFSIZE 20    // 60 per 1 min
-#define METEO_DATA_BUFSIZE 20            // 15 per 15 min
+#define FINE_DATA_BUFSIZE 70      // 60 per 1 min
+#define METEO_DATA_BUFSIZE 20     // 15 per 15 min
 
-class MeteoData{
+class MeteoData : public DataBase{
 
   public:
-    DateTime datetime;
-
     // weather station
     float wind_direction;
     float wind_speed;
@@ -22,8 +23,6 @@ class MeteoData{
 
     // battery - ESP32 analog read
     float battery_voltage_mean, battery_voltage_var;
-
-    static const char * delimiter;
 
     static char* headerToCsvLine(char* csvLine) {
         const int n_columns = 12;
@@ -59,22 +58,25 @@ class MeteoData{
     }
 
     MeteoData()
+    : DataBase()
     {
-      datetime = DateTime(0,0,0, 0,0,0);
-
       wind_direction = 0.0f;
       wind_speed = 0.0f;
       raingauge = 0.0f;
 
-      humidity_mean = humidity_var = 0.0f;
-      temperature_mean = temperature_var = 0.0f;
-      light_mean = light_var = 0.0f;
+      humidity_mean = 0.0f;
+      humidity_var = 0.0f;
+      temperature_mean = 0.0f;
+      temperature_var = 0.0f;
+      light_mean = 0.0f;
+      light_var = 0.0f;
 
-      battery_voltage_mean = battery_voltage_var = 0.0f;
+      battery_voltage_mean = 0.0f;
+      battery_voltage_var = 0.0f;
     }
 
     // Function to convert MeteoData struct to CSV string with a custom delimiter
-    char* dataToCsvLine(char* csvLine) {
+    char* dataToCsvLine(char* csvLine) const override{
 
       const char * dt = datetime.timestamp().c_str();
       // Format datetime in "YYYY-MM-DD HH:MM:SS" format
@@ -138,5 +140,3 @@ class MeteoData{
       battery_voltage_var = var[3];
     }
 };
-
-const char * MeteoData::delimiter = ";";

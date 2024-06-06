@@ -1,19 +1,17 @@
+# pragma once
+
 #include <RTClib.h> // just for DateTime
 #include "pr2_comm.h"
+#include "data_base.h"
 
-#define NUM_VALUES 6
 
-class PR2Data{
+#define NUM_PR2_VALUES 6
+
+class PR2Data : public DataBase{
   public:
-    DateTime datetime;
-
-    // weather station
-    float permitivity[NUM_VALUES];
-    float soil_moisture[NUM_VALUES];
-    float raw_ADC[NUM_VALUES];
-
-    static const char * delimiter;
-    static const float NaN;
+    float permitivity[NUM_PR2_VALUES];
+    float soil_moisture[NUM_PR2_VALUES];
+    float raw_ADC[NUM_PR2_VALUES];
 
     void setPermitivity(float* sourceArray, uint8_t n_values)
     {
@@ -32,16 +30,16 @@ class PR2Data{
 
     static char* headerToCsvLine(char* csvLine) {
         // datetime + 3 fields
-        const uint8_t n_columns = 1 + NUM_VALUES*3;
+        const uint8_t n_columns = 1 + NUM_PR2_VALUES*3;
         char columnNames[n_columns][20];
 
         uint8_t j = 0;
         sprintf(columnNames[j++],"DateTime");
-        for(uint8_t i=0; i<NUM_VALUES; i++)
+        for(uint8_t i=0; i<NUM_PR2_VALUES; i++)
           sprintf(columnNames[j++],"Perm_%d", i);
-        for(uint8_t i=0; i<NUM_VALUES; i++)
+        for(uint8_t i=0; i<NUM_PR2_VALUES; i++)
           sprintf(columnNames[j++],"SoilMoistMin_%d", i);
-        for(uint8_t i=0; i<NUM_VALUES; i++)
+        for(uint8_t i=0; i<NUM_PR2_VALUES; i++)
           sprintf(columnNames[j++],"rawADC_%d", i);
         
         csvLine[0] = '\0'; // Initialize the CSV line as an empty string
@@ -62,10 +60,9 @@ class PR2Data{
     }
 
     PR2Data()
+    : DataBase()
     {
-      datetime = DateTime(0,0,0, 0,0,0);
-
-      for(uint8_t i=0; i<NUM_VALUES; i++)
+      for(uint8_t i=0; i<NUM_PR2_VALUES; i++)
       {
         permitivity[i] = 0.0f;
         soil_moisture[i] = 0.0f;
@@ -74,26 +71,26 @@ class PR2Data{
     }
 
     // Function to convert MeteoData struct to CSV string with a custom delimiter
-    char* dataToCsvLine(char* csvLine) {
+    char* dataToCsvLine(char* csvLine) const override {
 
       const char * dt = datetime.timestamp().c_str();
       sprintf(csvLine, "%s%s", dt, delimiter);
       char number[10];
 
-      for(uint8_t i=0; i<NUM_VALUES; i++){
+      for(uint8_t i=0; i<NUM_PR2_VALUES; i++){
         sprintf(number,"%.4f%s", permitivity[i], delimiter);
         strcat(csvLine, number);
       }
-      for(uint8_t i=0; i<NUM_VALUES; i++){
+      for(uint8_t i=0; i<NUM_PR2_VALUES; i++){
         sprintf(number,"%.4f%s", soil_moisture[i], delimiter);
         strcat(csvLine, number);
       }
-      for(uint8_t i=0; i<NUM_VALUES-1; i++){
+      for(uint8_t i=0; i<NUM_PR2_VALUES-1; i++){
         sprintf(number,"%.0f%s", raw_ADC[i], delimiter);
         strcat(csvLine, number);
       }
       // last value without delimiter
-      sprintf(number,"%.0f\n", raw_ADC[NUM_VALUES-1]);
+      sprintf(number,"%.0f\n", raw_ADC[NUM_PR2_VALUES-1]);
       strcat(csvLine, number);
       // strcat(csvLine,"\n");
       
@@ -106,16 +103,6 @@ class PR2Data{
       memcpy(destinationArray, sourceArray, n_values*sizeof(float));
     }
 };
-
-const char * PR2Data::delimiter = ";";
-const float PR2Data::NaN = 0.0;
-
-
-
-
-
-
-
 
 
 class PR2Reader{
