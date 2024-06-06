@@ -5,7 +5,7 @@
 #include "file_info.h"
 #include "data_base.h"
 
-
+/// @brief Wrapper class for SD card and CSV file handling.
 class CSVHandler
 {
   public:
@@ -21,9 +21,6 @@ class CSVHandler
 
       Serial.printf("Creating file: %s\n", user_filename);
       FileInfo datafile(SD, user_filename);
-      // datafile.remove();
-      // datafile.read();
-      // if(!datafile.exists())
       datafile.write(header);
     }
 

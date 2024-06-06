@@ -57,6 +57,7 @@ void IRAM_ATTR intPeriod() { weather.intTimer(); }
 #include <esp_intr_alloc.h>
 #include "pr2_comm.h"
 #include "pr2_data.h"
+#include "pr2_reader.h"
 
 #define PR2_DATA_PIN 4         /*!< The pin of the SDI-12 data bus */
 PR2Comm pr2(PR2_DATA_PIN, 0);  // (data_pin, verbose)
