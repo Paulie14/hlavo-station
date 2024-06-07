@@ -18,7 +18,6 @@ class PR2Reader{
 
     float rec_values[10];
     uint8_t rec_n_values = 0;
-    String sensorResponse = "";
 
   public:
     PR2Data data;
@@ -26,13 +25,15 @@ class PR2Reader{
 
     PR2Reader(PR2Comm &pr2_comm, uint8_t address)
     :_address(address), _pr2_comm(pr2_comm)
-    {}
+    {
+      Reset();
+    }
 
     void TryRequest()
     {
       if(!pr2_delay_timer.running)
       {
-        sensorResponse = _pr2_comm.measureRequest(_list_of_commands[icmd], _address);
+        char* res = _pr2_comm.measureRequest(_list_of_commands[icmd], _address);
         pr2_delay_timer.reset();
       }
     }
@@ -41,14 +42,16 @@ class PR2Reader{
     {
       if(pr2_delay_timer())
       {
-        sensorResponse = _pr2_comm.measureRead(_address, rec_values, &rec_n_values);
+        char* res = _pr2_comm.measureRead(_address, rec_values, &rec_n_values);
         // _pr2_comm.print_values("field", rec_values, rec_n_values);
-
-        switch(icmd)
+        if(res != nullptr)
         {
-          case 0: data.setPermitivity(rec_values, rec_n_values); break;
-          case 1: data.setSoilMoisture(rec_values, rec_n_values); break;
-          case 2: data.setRaw_ADC(&rec_values[1], rec_n_values-1); break;
+          switch(icmd)
+          {
+            case 0: data.setPermitivity(rec_values, rec_n_values); break;
+            case 1: data.setSoilMoisture(rec_values, rec_n_values); break;
+            case 2: data.setRaw_ADC(&rec_values[1], rec_n_values-1); break;
+          }
         }
         icmd++;
 
