@@ -12,18 +12,20 @@
 #ifdef TEST
     /** TIMERS */
     // times in milliseconds, L*... timing level
-    Every timer_L1(1000); // fine timer - humidity, temperature, meteo, ...
+    Every timer_L1(1000);      // fine timer - humidity, temperature, meteo, ...
     // L2 - hardware timer with L2_WEATHER_PERIOD in seconds
     #define L2_WEATHER_PERIOD 10
-    Every timer_L3(30000); // coarse timer - PR2 - TEST 30 s
+    Every timer_L3(30*1000); // coarse timer - PR2 - 30 s
+    Every timer_L4(60*1000);  // watchdog timer - 1 min
     #define VERBOSE 1
 #else
     /** TIMERS */
     // times in milliseconds, L*... timing level
-    Every timer_L1(1000); // fine timer - humidity, temperature, ...
+    Every timer_L1(1000);         // fine timer - humidity, temperature, ...
     // L2 - hardware timer with L2_WEATHER_PERIOD in seconds
     #define L2_WEATHER_PERIOD 60
-    Every timer_L3(900000); // coarse timer - PR2 - RUN 15 min
+    Every timer_L3(900*1000);     // coarse timer - PR2 - 15 min
+    Every timer_L4(24*3600*1000); // watchdog timer - 24 h
     #define VERBOSE 0
 #endif
 
@@ -327,5 +329,12 @@ void loop() {
     for(int i=0; i<n_pr2_sensors; i++){
       CSVHandler::printFile(data_pr2_filenames[i]);
     }
+
+  if(timer_L4())
+  {
+    Serial.println("-------------------------- L4 TICK --------------------------");
+    Serial.printf("\nReboot...\n\n");
+    delay(250);
+    ESP.restart();
   }
 }
