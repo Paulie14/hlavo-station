@@ -96,6 +96,34 @@ class PR2Data : public DataBase{
       return csvLine;
     }
 
+    // Print MeteoData
+    char* print(char* msg_buf) const {
+
+      const char * dt = datetime.timestamp().c_str();
+      sprintf(msg_buf, "%s\n", dt);
+      char number[10];
+
+      strcat(msg_buf, "    Perm. ");
+      for(uint8_t i=0; i<size; i++){
+        sprintf(number,"%.4f, ", permitivity[i]);
+        strcat(msg_buf, number);
+      }
+      strcat(msg_buf, "\n    SoilM. ");
+      for(uint8_t i=0; i<size; i++){
+        sprintf(number,"%.4f, ", soil_moisture[i]);
+        strcat(msg_buf, number);
+      }
+      strcat(msg_buf, "\n    RawADC. ");
+      for(uint8_t i=0; i<size-1; i++){
+        sprintf(number,"%.0f, ", raw_ADC[i]);
+        strcat(msg_buf, number);
+      }
+      // last value without delimiter
+      sprintf(number,"%.0f", raw_ADC[size-1]);
+      strcat(msg_buf, number);
+      return msg_buf;
+    }
+
   private:
     void copyArray(float* destinationArray, float* sourceArray, uint8_t n_values)
     {

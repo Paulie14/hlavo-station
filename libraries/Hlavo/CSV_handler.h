@@ -46,7 +46,7 @@ class CSVHandler
 
     static void appendData(char* filename, DataBase* data[], uint8_t n_data)
     {
-      Serial.printf("appendData: N %d\n", n_data);
+      //Serial.printf("appendData: N %d\n", n_data);
       char csvLine[400];
       File file = SD.open(filename, FILE_APPEND);
       if(!file){

@@ -26,7 +26,7 @@
     #define L2_WEATHER_PERIOD 60
     Every timer_L3(900*1000);     // coarse timer - PR2 - 15 min
     Every timer_L4(24*3600*1000); // watchdog timer - 24 h
-    #define VERBOSE 0
+    #define VERBOSE 1
 #endif
 
 
@@ -123,9 +123,9 @@ void fine_data_collect()
   fineDataBuffer[2][i] = light_lux;
   fineDataBuffer[3][i] = battery;
 
-  if(VERBOSE >= 2)
+  if(VERBOSE >= 1)
   {
-    Serial.printf("%d:   %.2f,  %.2f,  %.0f,  %.3f\n", num_fine_data_collected,
+    Serial.printf("        %d:  Hum. %.2f, Temp. %.2f, Light %.0f, Bat. %.3f\n", num_fine_data_collected,
       fineDataBuffer[0][i], fineDataBuffer[1][i], fineDataBuffer[2][i], fineDataBuffer[3][i]);
   }
 
@@ -137,7 +137,7 @@ void fine_data_collect()
 void meteo_data_collect()
 {
   DateTime dt = rtc_clock.now();
-  Serial.printf("DateTime: %s. Buffering MeteoData.\n", dt.timestamp().c_str());
+  // Serial.printf("    DateTime: %s. Buffering MeteoData.\n", dt.timestamp().c_str());
 
   // should not happen
   if(num_meteo_data_collected >= METEO_DATA_BUFSIZE)
@@ -160,9 +160,10 @@ void meteo_data_collect()
 
   if(VERBOSE >= 1)
   {
-    char line[400];
-    data.dataToCsvLine(line);
-    Serial.println(line);
+    char msg[400];
+    Serial.printf("    %s\n", data.print(msg));
+    // data.dataToCsvLine(msg);
+    // Serial.println(msg);
   }
 
   // write data into buffer
@@ -196,7 +197,12 @@ void collect_and_write_PR2()
   {
     DateTime dt = rtc_clock.now();
     pr2_readers[iss].data.datetime = dt;
-    Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
+    if(VERBOSE >= 1)
+    {
+      // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
+      char msg[400];
+      Serial.printf("PR2[a%d]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg));
+    }
 
     CSVHandler::appendData(data_pr2_filenames[iss], &(pr2_readers[iss].data));
 
@@ -298,16 +304,17 @@ void loop() {
   // read values to buffer at fine time scale [fine Meteo Data]
   if(timer_L1())
   {
-    Serial.println("-------------------------- L1 TICK --------------------------");
+    Serial.println("        -------------------------- L1 TICK --------------------------");
     fine_data_collect();
   }
 
   // read values to buffer at fine time scale [averaged Meteo Data]
 	if (weather.gotData()) {
-    Serial.println("-------------------------- L2 TICK --------------------------");
+    Serial.println("    **************************************** L2 TICK ****************************************");
 
     meteo_data_collect();
     weather.resetGotData();
+    Serial.println("    **************************************** ******* ****************************************");
   }
 
   // read values from PR2 sensors when reading not finished yet
@@ -324,11 +331,14 @@ void loop() {
 
     pr2_all_finished = false;
 
-    // TEST read data from CSV
-    CSVHandler::printFile(data_meteo_filename);
-    for(int i=0; i<n_pr2_sensors; i++){
-      CSVHandler::printFile(data_pr2_filenames[i]);
-    }
+    #ifdef TEST
+      // TEST read data from CSV
+      // CSVHandler::printFile(data_meteo_filename);
+      // for(int i=0; i<n_pr2_sensors; i++){
+      //   CSVHandler::printFile(data_pr2_filenames[i]);
+      // }
+    #endif
+  }
 
   if(timer_L4())
   {

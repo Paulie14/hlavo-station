@@ -139,4 +139,28 @@ class MeteoData : public DataBase{
       light_var = var[2];
       battery_voltage_var = var[3];
     }
+
+    // Print MeteoData
+    char* print(char* msg_buf) const {
+
+      const char * dt = datetime.timestamp().c_str();
+
+      sprintf(msg_buf, "%s   "
+              "WindDir %.1f, "  // wind direction
+              "WindSpd %.2f, "  // wind speed
+              "Rain %.2f,  "  // raingauge
+              "Hum %.2f, " // humidity
+              "Temp %.2f, " // temperature
+              "Light %.0f, " // light
+              "Bat %.3f",// battery
+              dt,
+              wind_direction,
+              wind_speed,
+              raingauge,
+              humidity_mean,
+              temperature_mean,
+              light_mean,
+              battery_voltage_mean);
+      return msg_buf;
+    }
 };
