@@ -3,7 +3,7 @@
 #include <RTClib.h> // just for DateTime
 #include "data_base.h"
 
-#define NUM_FINE_VALUES 4
+#define NUM_FINE_VALUES 4         // humidity, temperature, light_mean, battery_voltage
 #define FINE_DATA_BUFSIZE 70      // 60 per 1 min
 #define METEO_DATA_BUFSIZE 20     // 15 per 15 min
 

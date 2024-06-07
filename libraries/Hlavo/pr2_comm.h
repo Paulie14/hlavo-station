@@ -3,8 +3,12 @@
 #include <Every.h>
 #include <SDI12.h>
 
+// Global timer for PR2 request-read delay.
 Timer pr2_delay_timer(2200, false);
 
+/// @brief SDI12 wrapper class for PR2.
+/// Uses some key approaches from ESP32_SDI12, reads byte by byte to
+/// resolves invalid characters at beginning of messages.
 class PR2Comm
 {
   private:
@@ -185,7 +189,7 @@ class PR2Comm
 
       if(n_bytes <= 5)
       {
-        Serial.println("ERROR: No valid response received!");
+        Serial.printf("ERROR: PR2_comm [%s] - no valid response received!\n", measure_command);
         return nullptr;
       }
       // for(int i=0; i<n_bytes; i++)
@@ -210,7 +214,7 @@ class PR2Comm
 
         if(n_bytes <= 5)
         {
-          Serial.println("ERROR: No valid response received!");
+          Serial.printf("ERROR: PR2_comm [%s] - no valid response received!\n", data_command);
           *n_values = 0;
           return nullptr;
         }

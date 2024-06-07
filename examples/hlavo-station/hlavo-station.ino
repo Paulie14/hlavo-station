@@ -1,14 +1,32 @@
+
+/*********************************************** COMMON ***********************************************/
 #include <Every.h>
 
 #define PIN_ON 47 // napajeni !!!
 
-/** TIMERS */
-// times in milliseconds, L*... timing level
-Every timer_L1(1000); // fine timer - humidity, temperature, ...
-// L2 - hardware timer with L2_WEATHER_PERIOD in seconds (TEST 10 s, RUN 60 s)
-#define L2_WEATHER_PERIOD 10
-Every timer_L3(30000); // coarse timer - PR2 - TEST 30 s
-// Every timer_L3(900000); // coarse timer - PR2 - RUN 15 min
+
+/************************************************ RUN ************************************************/
+// Switch between testing/setup and long term run.
+#define TEST
+
+#ifdef TEST
+    /** TIMERS */
+    // times in milliseconds, L*... timing level
+    Every timer_L1(1000); // fine timer - humidity, temperature, meteo, ...
+    // L2 - hardware timer with L2_WEATHER_PERIOD in seconds
+    #define L2_WEATHER_PERIOD 10
+    Every timer_L3(30000); // coarse timer - PR2 - TEST 30 s
+    #define VERBOSE 1
+#else
+    /** TIMERS */
+    // times in milliseconds, L*... timing level
+    Every timer_L1(1000); // fine timer - humidity, temperature, ...
+    // L2 - hardware timer with L2_WEATHER_PERIOD in seconds
+    #define L2_WEATHER_PERIOD 60
+    Every timer_L3(900000); // coarse timer - PR2 - RUN 15 min
+    #define VERBOSE 0
+#endif
+
 
 /*********************************************** SD CARD ***********************************************/
 // SD card IO
@@ -81,7 +99,7 @@ int num_fine_data_collected = 0;
 MeteoData meteoDataBuffer[METEO_DATA_BUFSIZE];
 int num_meteo_data_collected = 0;
 
-// collects data at fine interval
+// collect meteo data at fine interval into a fine buffer of floats
 void fine_data_collect()
 {
   sensors_event_t humidity, temp;
@@ -103,13 +121,17 @@ void fine_data_collect()
   fineDataBuffer[2][i] = light_lux;
   fineDataBuffer[3][i] = battery;
 
-  // Serial.printf("%d:   %.2f,  %.2f,  %.0f,  %.3f\n", num_fine_data_collected,
-  //   fineDataBuffer[0][i], fineDataBuffer[1][i], fineDataBuffer[2][i], fineDataBuffer[3][i]);
+  if(VERBOSE >= 2)
+  {
+    Serial.printf("%d:   %.2f,  %.2f,  %.0f,  %.3f\n", num_fine_data_collected,
+      fineDataBuffer[0][i], fineDataBuffer[1][i], fineDataBuffer[2][i], fineDataBuffer[3][i]);
+  }
 
   num_fine_data_collected++;
 }
 
-// save the meteo data to buffer
+// compute statistics over the fine meteo data
+// and save the meteo data into buffer of MeteoData
 void meteo_data_collect()
 {
   DateTime dt = rtc_clock.now();
@@ -132,13 +154,14 @@ void meteo_data_collect()
     data.wind_direction = weather.getDirection();
     data.wind_speed = weather.getSpeed();
     data.raingauge = weather.getRain_ml();
-    // Serial.printf("%d:   %.2f,  %d  %.2f,  %d  %.2f\n", num_meteo_data_collected,
-    // data.wind_direction, weather.getSpeedTicks(), data.wind_speed, weather.getRainTicks(), data.raingauge);
   }
 
-  // char line[400];
-  // data.dataToCsvLine(line);
-  // Serial.println(line);
+  if(VERBOSE >= 1)
+  {
+    char line[400];
+    data.dataToCsvLine(line);
+    Serial.println(line);
+  }
 
   // write data into buffer
   num_meteo_data_collected++;
@@ -147,7 +170,7 @@ void meteo_data_collect()
   num_fine_data_collected = 0;
 }
 
-// save the meteo data buffer to CSV
+// write the meteo data buffer to CSV
 void meteo_data_write()
 {
   // Fill the base class pointer array with addresses of derived class objects
@@ -161,64 +184,8 @@ void meteo_data_write()
   num_meteo_data_collected = 0;
 }
 
-void collect_and_write_PR2(uint8_t sid)
-{
-  PR2Data data;
-  char csvLine[200];
-
-  uint8_t address = pr2_addresses[sid];
-  float values[7];
-  uint8_t n_values = 0;
-  String sensorResponse = "";
-
-  Serial.printf("--------------- collect PR2 [%d] a%d\n", sid, address);
-  data.datetime = rtc_clock.now();
-
-  sensorResponse = pr2.measureRequestAndRead("C", address, values, &n_values);
-  pr2.print_values("permitivity", values, n_values);
-  data.setPermitivity(values, n_values);
-
-  sensorResponse = pr2.measureRequestAndRead("C1", address, values, &n_values);
-  pr2.print_values("soil moisture mineral", values, n_values);
-  data.setSoilMoisture(values, n_values);
-
-  // sensorResponse = pr2.measureConcurrent("C2", address, values, &n_values);
-  // pr2.print_values("soil moisture organic", values, n_values);
-
-  // sensorResponse = pr2.measureConcurrent("C3", address, values, &n_values);
-  // pr2.print_values("soil moisture mineral (%)", values, n_values);
-
-  // sensorResponse = pr2.measureConcurrent("C4", address, values, &n_values);
-  // pr2.print_values("soil moisture mineral (%)", values, n_values);
-
-  // sensorResponse = pr2.measureConcurrent("C7", address, values, &n_values);
-  // pr2.print_values("millivolts", values, n_values);
-
-  // sensorResponse = pr2.measureConcurrent("C8", address, values, &n_values);
-  // pr2.print_values("millivolts uncalibrated", values, n_values);
-
-  sensorResponse = pr2.measureRequestAndRead("C9", address, values, &n_values);
-  pr2.print_values("raw ADC", values, n_values);
-  data.setRaw_ADC(&values[1], n_values-1);  // skip zero channel
-
-  data.dataToCsvLine(csvLine);
-
-  File file = SD.open(data_pr2_filenames[sid], FILE_APPEND);
-  if(!file){
-      Serial.printf("Failed to open file for appending: %s\n", data_pr2_filenames[sid]);
-  }
-  else
-  {
-    bool res = file.print(data.dataToCsvLine(csvLine));
-    if(!res){
-        Serial.printf("Append failed: %s\n", data_pr2_filenames[sid]);
-    }
-  }
-  file.close();
-
-  Serial.println("PR2 data written.");
-}
-
+// use PR2 reader to request and read data from PR2
+// minimize delays so that it does not block main loop
 void collect_and_write_PR2()
 {
   pr2_readers[iss].TryRequest();
@@ -336,24 +303,6 @@ void loop() {
   // read values to buffer at fine time scale [averaged Meteo Data]
 	if (weather.gotData()) {
     Serial.println("-------------------------- L2 TICK --------------------------");
-    // Serial.printf("L2 tick - Weather\n");
-
-    // sensors_event_t humidity, temp; // promenne vlhkost a teplota
-    // sht4.getEvent(&humidity, &temp);
-    // float light_lux = lightMeter.readLightLevel();
-
-    // DateTime dt = rtc_clock.now();
-
-    // Serial.printf("DateTime: %s\n", dt.timestamp().c_str());
-    // Serial.printf("Temperature: %f degC\n", temp.temperature);
-    // Serial.printf("Humidity: %f rH\n", humidity.relative_humidity);
-    // Serial.printf("Light: %f lx\n", light_lux);
-
-    // Serial.printf("Wind direc adc:  %d\n", weather.getDirAdcValue());
-    // Serial.printf("Wind direc deg:  %f\n", weather.getDirection());
-    // Serial.printf("Wind speed TICK: %d\n", weather.getSpeedTicks());
-    // Serial.printf("Rain gauge TICK: %d\n", weather.getRainTicks());
-    // Serial.printf("Battery [V]: %f\n", adc.readVoltage() * DeviderRatio);
 
     meteo_data_collect();
     weather.resetGotData();

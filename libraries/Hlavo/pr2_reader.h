@@ -5,6 +5,7 @@
 
 /// @brief Class that keeps track of requesting and receiving PR2 data from a single sensor.
 /// The point is not to block the main loop with delays between commands.
+/// It uses common timer pr2_delay_timer, which must be global.
 class PR2Reader{
   private:
     uint8_t _address;
