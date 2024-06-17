@@ -303,6 +303,7 @@ void setup() {
   // synchronize timers after setup
   timer_L3.reset(true);
   timer_L1.reset(true);
+  timer_L4.reset(true);
 }
 
 
