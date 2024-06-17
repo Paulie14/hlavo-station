@@ -33,7 +33,7 @@ class PR2Reader{
     {
       if(!pr2_delay_timer.running)
       {
-        char* res = _pr2_comm.measureRequest(_list_of_commands[icmd], _address);
+        _pr2_comm.measureRequest(_list_of_commands[icmd], _address);
         pr2_delay_timer.reset();
       }
     }

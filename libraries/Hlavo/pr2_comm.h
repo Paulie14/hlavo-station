@@ -25,7 +25,7 @@ class PR2Comm
 
   public:
     PR2Comm(int8_t dataPin, uint8_t verbose=0)
-    : _dataPin(dataPin), _SDI12(dataPin), _verbose(verbose)
+    : _verbose(verbose), _dataPin(dataPin), _SDI12(dataPin)
     {
     }
 
@@ -189,7 +189,7 @@ class PR2Comm
 
       if(n_bytes <= 5)
       {
-        Serial.printf("ERROR: PR2_comm [%s] - no valid response received!\n", measure_command);
+        Serial.printf("ERROR: PR2_comm [%s] - no valid response received!\n", measure_command.c_str());
         return nullptr;
       }
       // for(int i=0; i<n_bytes; i++)
@@ -214,7 +214,7 @@ class PR2Comm
 
         if(n_bytes <= 5)
         {
-          Serial.printf("ERROR: PR2_comm [%s] - no valid response received!\n", data_command);
+          Serial.printf("ERROR: PR2_comm [%s] - no valid response received!\n", data_command.c_str());
           *n_values = 0;
           return nullptr;
         }
@@ -227,7 +227,8 @@ class PR2Comm
         char* msg_ptr;
         // Extracts the device address and stores a ptr to the rest of the
         // message buffer for use below (to extract values only)
-        uint8_t raddress = strtof(msg_start, &msg_ptr);
+        strtof(msg_start, &msg_ptr);
+        // uint8_t raddress = strtof(msg_start, &msg_ptr);
         // Serial.printf("address: %d\n", raddress);
 
         char* next_msg_ptr;
