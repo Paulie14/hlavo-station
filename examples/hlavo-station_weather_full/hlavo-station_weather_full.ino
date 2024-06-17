@@ -118,7 +118,7 @@ void meteo_data_collect()
   {
     data.wind_direction = weather.getDirection();
     data.wind_speed = weather.getSpeed();
-    data.raingauge = weather.getRain();
+    data.raingauge = weather.getRain_mm();
     Serial.printf("%d:   %.2f,  %d  %.2f,  %d  %.2f\n", num_meteo_data_collected,
     data.wind_direction, weather.getSpeedTicks(), data.wind_speed, weather.getRainTicks(), data.raingauge);
   }

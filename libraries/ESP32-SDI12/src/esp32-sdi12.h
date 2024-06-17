@@ -14,17 +14,6 @@ private:
     // Maximum number of SDI-12 devices on bus
     static constexpr int8_t MAX_N_DEVICES       =       9;
 
-    /* Information command structure begin */
-    // Length of vendor
-    static constexpr int8_t LEN_VENDOR          =       8;
-    // Length of sensor model identifier
-    static constexpr int8_t LEN_MODEL           =       6;
-    // Length of sensor version
-    static constexpr int8_t LEN_SENSOR_VERSION  =       3;
-    // Length of additional sensor information
-    static constexpr int8_t LEN_INFO            =       13;
-    /* Information command structure end */
-
     // Baud rate of SDI-12 TX/RX
     static constexpr int16_t SDI12_BAUD         =       1200;
     // Max size of any SDI-12 command (in bytes)
@@ -90,6 +79,17 @@ public:
         SDI12_BUF_OVERFLOW      =       0x06
     };
 
+    /* Information command structure begin */
+    // Length of vendor
+    static constexpr int8_t LEN_VENDOR          =       8;
+    // Length of sensor model identifier
+    static constexpr int8_t LEN_MODEL           =       6;
+    // Length of sensor version
+    static constexpr int8_t LEN_SENSOR_VERSION  =       3;
+    // Length of additional sensor information
+    static constexpr int8_t LEN_INFO            =       13;
+    /* Information command structure end */
+    
     // SDI-12 sensor information obtained from a `SDI12_Information`
     // request
     struct Sensor {

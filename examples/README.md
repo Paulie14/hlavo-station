@@ -1,5 +1,10 @@
 # TESTS
 
+### hlavo-station
+Main HLAVO script combining all sensors and output.
+
+## Weather meters
+
 ### hlavo-station_rain_counter
 Minimalistic test. Reading rain gauge pin and getting ticks.
 
@@ -28,12 +33,16 @@ Weather station full working test.
 - adds SD card writer
 - moves some code to lib "Hlavo"
 
+
+## PR2 sensors
+
 ### hlavo-PR2
 Minimalistic test. Communication with PR2 using Arduino SDI12 library.
 - works fine with Arduino
 - can get sensor info
 - can send measure request with responce
 - does not receive any data after data request
+- problems caused by randomly receiving null character (solved in `hlavo-station`)
 
 ### hlavo-PR2-ESP32
 Minimalistic test. Communication with PR2 using ESP32-SDI12 library.
@@ -41,3 +50,4 @@ Minimalistic test. Communication with PR2 using ESP32-SDI12 library.
 - can get sensor info
 - can send measure request with responce
 - does not receive any data (actually requests data in infinite loop)
+- problems caused by randomly receiving null character (solved in `hlavo-station`)

@@ -266,7 +266,12 @@ ESP32_SDI12::Status ESP32_SDI12::sensorInfo(uint8_t address,
     }
 
     // Parse response held in msg_buf into a SDI12 sensor object
-    memcpy(sensor, msg_buf, strlen(msg_buf));
+    // Serial.println(msg_buf);
+    // Serial.println(strlen(msg_buf));
+    // Serial.println(sizeof(Sensor));
+    // Serial.println(sizeof(*sensor));
+    // memcpy(sensor, msg_buf, strlen(msg_buf));
+    memcpy(sensor, msg_buf, sizeof(Sensor));
 
     #ifdef SDI12_SERIAL_DEBUG
         sensor_debug(sensor);
@@ -447,10 +452,13 @@ ESP32_SDI12::Status ESP32_SDI12::requestMeasure(uint8_t address,
     // Expected number of values in response
     measure->n_values = msg_buf[4] - '0';
 
+    Serial.printf("Measure: %d, %d, %d\n", measure->address, measure->delay_time, measure->n_values);
+
     // A sensor *should* send a service request string when it has asked for a delay of > 0
     // seconds. We have at least one sensor that does not always do this so don't assume
     // it's coming, but read and discard it if it does.
     if (measure->delay_time > 0) {
+        Serial.printf("requestMeasure waiting for responce (%d s)\n", measure->delay_time);
         waitForResponse(measure->delay_time * 1000);
         if (uart.available() > 0) {
             // This should be the service request, because no data commands
@@ -459,6 +467,7 @@ ESP32_SDI12::Status ESP32_SDI12::requestMeasure(uint8_t address,
         }
     }
 
+    Serial.println("requestMeasure sent.");
     return SDI12_OK;
 }
 
@@ -531,16 +540,22 @@ ESP32_SDI12::Status ESP32_SDI12::measure(uint8_t address,
         return SDI12_BUF_OVERFLOW;
     }
 
+    Serial.printf("SDI12_BUF_OVERFLOW: %d %d\n", measure.n_values, max_values);
+
     uint8_t parsed_values = 0; // Number of values successfully parsed
     // Position in the data command request (multiple calls may be needed to
     // get all values from a sensor).
     uint8_t position = 0;
     while (parsed_values < measure.n_values) {
+        Serial.printf("parsed_values: %d\n", parsed_values);
         // Request data as it should be ready to be read now
         res = requestData(address, position);
         if (res != SDI12_OK) {
             return res;
         }
+
+        delay(500);
+        Serial.println("requestData done");
 
         char* msg_ptr;
         // Extracts the device address and stores a ptr to the rest of the

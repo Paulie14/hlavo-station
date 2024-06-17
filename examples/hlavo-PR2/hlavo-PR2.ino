@@ -4,6 +4,7 @@
 #include <esp_intr_alloc.h>
 #include "pr2_comm.h"
 #include "pr2_data.h"
+#include "pr2_reader.h"
 
 #define SERIAL_BAUD 115200 /*!< The baud rate for the output serial port */
 #define PR2_DATA_PIN 4         /*!< The pin of the SDI-12 data bus */

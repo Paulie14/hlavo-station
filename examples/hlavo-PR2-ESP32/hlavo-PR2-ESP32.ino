@@ -47,6 +47,14 @@ void loop() {
     Serial.printf("Info: %.*s\n", ESP32_SDI12::LEN_MODEL, si->model);
 
     
+// 16:21:40.105 -> permitivity:    +1.0003+1.0061+0.9858+0.9867+0.9973+0.9846
+// 16:21:40.105 -> 
+// 16:21:43.891 -> soil moisture:  -0.0714-0.0711-0.0722-0.0721-0.0715-0.0723
+// 16:21:43.891 -> 
+// 16:21:47.808 -> millivolts:     +292.87-4.2857-13.382+19.465-61.807+5.3846+10.015
+// 16:21:47.808 -> 
+// 16:21:51.660 -> raw ADC:        +959.69+945.03+915+1022.7+755.39+975.96+991.54
+
     // Measure on address 1
     // Float response will be inserted into values buffer
     // u_int8_t num_vals[1];
