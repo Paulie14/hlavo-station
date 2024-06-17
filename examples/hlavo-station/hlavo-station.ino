@@ -7,7 +7,7 @@
 
 /************************************************ RUN ************************************************/
 // Switch between testing/setup and long term run.
-#define TEST
+// #define TEST
 
 #ifdef TEST
     /** TIMERS */
@@ -79,7 +79,8 @@ void IRAM_ATTR intPeriod() { weather.intTimer(); }
 #include "pr2_data.h"
 #include "pr2_reader.h"
 
-#define PR2_DATA_PIN 4         /*!< The pin of the SDI-12 data bus */
+#define PR2_POWER_PIN 7        // The pin PR2 power
+#define PR2_DATA_PIN 4         // The pin of the SDI-12 data bus
 PR2Comm pr2(PR2_DATA_PIN, 0);  // (data_pin, verbose)
 const uint8_t n_pr2_sensors = 2;
 const uint8_t pr2_addresses[n_pr2_sensors] = {0,1};  // sensor addresses on SDI-12
@@ -91,6 +92,8 @@ char data_pr2_filenames[n_pr2_sensors][100] = {"pr2_a0.csv", "pr2_a1.csv"};
 
 uint8_t iss = 0;  // current sensor reading
 bool pr2_all_finished = false;
+
+Timer timer_PR2_power(1000, false);
 
 /****************************************** DATA COLLECTION ******************************************/
 // L1 timer data buffer
@@ -212,6 +215,7 @@ void collect_and_write_PR2()
     {
       iss = 0;
       pr2_all_finished = true;
+      digitalWrite(PR2_POWER_PIN, LOW);  // turn off power for PR2
     }
   }
 }
@@ -258,8 +262,14 @@ void setup() {
 
   // PR2
   gpio_install_isr_service( ESP_INTR_FLAG_IRAM);
+  pinMode(PR2_POWER_PIN, OUTPUT);
+  digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
+  timer_PR2_power.reset();
+
+  delay(1000);
   Serial.println("Opening SDI-12 for PR2...");
   pr2.begin();
+
   delay(500);  // allow things to settle
   String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
   // Serial.println(si);
@@ -319,7 +329,7 @@ void loop() {
 
   // read values from PR2 sensors when reading not finished yet
   // and write to a file when last values received
-  if(!pr2_all_finished)
+  if(!pr2_all_finished && timer_PR2_power.after())
     collect_and_write_PR2();
 
   // request reading from PR2 sensors
@@ -330,6 +340,9 @@ void loop() {
     meteo_data_write();
 
     pr2_all_finished = false;
+    // Serial.println("PR2 power on.");
+    digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
+    timer_PR2_power.reset();
 
     #ifdef TEST
       // TEST read data from CSV
