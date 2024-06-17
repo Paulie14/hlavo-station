@@ -287,13 +287,16 @@ void setup() {
 
   // Data files setup
   char csvLine[400];
+  const char* meteo_dir="meteo";
   CSVHandler::createFile(data_meteo_filename,
                             MeteoData::headerToCsvLine(csvLine),
-                            dt);
+                            dt, meteo_dir);
   for(int i=0; i<n_pr2_sensors; i++){
+    char pr2_dir[20];
+    sprintf(pr2_dir, "pr2_sensor_%d", i);
     CSVHandler::createFile(data_pr2_filenames[i],
                               PR2Data::headerToCsvLine(csvLine),
-                              dt);
+                              dt, pr2_dir);
   }
 
   Serial.println("HLAVO station is running.");

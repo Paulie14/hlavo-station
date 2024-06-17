@@ -9,14 +9,21 @@
 class CSVHandler
 {
   public:
-    static void createFile(char* user_filename, char* header, const DateTime& dt)
+    static void createFile(char* user_filename, char* header, const DateTime& dt, const char* dir_name)
     {
       char dt_buf[20];
       sprintf(dt_buf, "YY-MM-DD_hh-mm-ss");
       dt.toString(dt_buf);
 
       char temp_filename[100];
-      sprintf(temp_filename, "/%s_%s", dt_buf, user_filename);
+      if(strlen(dir_name) >0){
+        char dir_path[100];
+        sprintf(dir_path, "/%s", dir_name);
+        SD.mkdir(dir_path);
+        sprintf(temp_filename, "/%s/%s_%s", dir_name, dt_buf, user_filename);
+      }
+      else
+        sprintf(temp_filename, "/%s_%s", dt_buf, user_filename);
       strcpy(user_filename, temp_filename);
 
       Serial.printf("Creating file: %s\n", user_filename);
