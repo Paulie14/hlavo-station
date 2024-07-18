@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Wire.h>
 #include <RTClib.h>
 #include <ESP32Time.h>

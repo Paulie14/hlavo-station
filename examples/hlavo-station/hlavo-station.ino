@@ -8,6 +8,8 @@
 /************************************************ RUN ************************************************/
 // Switch between testing/setup and long term run.
 // #define TEST
+// PR2 - a1 - s Oddyssey U04 pod stromy
+// PR2 - a0 - u meteo stanice
 
 #ifdef TEST
     /** TIMERS */
@@ -15,8 +17,8 @@
     Every timer_L1(1000);      // fine timer - humidity, temperature, meteo, ...
     // L2 - hardware timer with L2_WEATHER_PERIOD in seconds
     #define L2_WEATHER_PERIOD 10
-    Every timer_L3(30*1000); // coarse timer - PR2 - 30 s
-    Every timer_L4(60*1000);  // watchdog timer - 1 min
+    Every timer_L3(40*1000); // coarse timer - PR2 - 40 s
+    Every timer_L4(10*60*1000);  // watchdog timer - 10 min
     #define VERBOSE 1
 #else
     /** TIMERS */
@@ -93,7 +95,7 @@ char data_pr2_filenames[n_pr2_sensors][100] = {"pr2_a0.csv", "pr2_a1.csv"};
 uint8_t iss = 0;  // current sensor reading
 bool pr2_all_finished = false;
 
-Timer timer_PR2_power(1000, false);
+Timer timer_PR2_power(2000, false);
 
 /****************************************** DATA COLLECTION ******************************************/
 // L1 timer data buffer
