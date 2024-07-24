@@ -2,6 +2,7 @@
 
 #include <Every.h>
 #include <SDI12.h>
+#include "Logger.h"
 
 // Global timer for PR2 request-read delay.
 Timer pr2_delay_timer(2200, false);
@@ -37,44 +38,46 @@ class PR2Comm
     }
     
 
-    String requestAndReadData(String command, bool trim = false) {
+    // String requestAndReadData(String command, bool trim = false) {
 
-      // delay(300);                   // Wait for response to be ready
-      // _SDI12.clearBuffer();
-      _SDI12.sendCommand(command); // Send the SDI-12 command
-      delay(50);                   // Wait for response to be ready
+      // return String(requestAndReadData(command.c_str()));
 
-      String sensorResponse = "";
-      //Read the response from the sensor
-      while (_SDI12.available()) { // Check if there is data available to read
-        char c = _SDI12.read();    // Read a single character
-        // if (c != -1 && c != 0x00 && c != 0x7F) {              // Check if the character is valid
-        if (c != -1) {              // Check if the character is valid
-          sensorResponse += c;      // Append the character to the response string
-          if(_verbose > 1){
-            Serial.print(c, HEX); Serial.print(" ");
-          }
-        }
-        delay(10);  // otherwise it would leave some chars to next message...
-      }
+      // // delay(300);                   // Wait for response to be ready
+      // // _SDI12.clearBuffer();
+      // _SDI12.sendCommand(command); // Send the SDI-12 command
+      // delay(50);                   // Wait for response to be ready
 
-      if(_verbose > 1)
-        Serial.println("");
+      // String sensorResponse = "";
+      // //Read the response from the sensor
+      // while (_SDI12.available()) { // Check if there is data available to read
+      //   char c = _SDI12.read();    // Read a single character
+      //   // if (c != -1 && c != 0x00 && c != 0x7F) {              // Check if the character is valid
+      //   if (c != -1) {              // Check if the character is valid
+      //     sensorResponse += c;      // Append the character to the response string
+      //     if(_verbose > 1){
+      //       Serial.print(c, HEX); Serial.print(" ");
+      //     }
+      //   }
+      //   delay(10);  // otherwise it would leave some chars to next message...
+      // }
 
-      if (trim)
-        sensorResponse.trim();  // remove CRLF at the end
+      // if(_verbose > 1)
+      //   Serial.println("");
 
-      if(_verbose > 0)
-      {
-        // if printf not available (Arduino)
-        // char string_buffer[128]; // Buffer to hold the formatted string
-        // snprintf(string_buffer, sizeof(string_buffer), "command %s: %s", command.c_str(), sensorResponse.c_str());
-        // Serial.println(string_buffer);
-        print_response(command, sensorResponse);
-      }
+      // if (trim)
+      //   sensorResponse.trim();  // remove CRLF at the end
 
-      return sensorResponse;
-    }
+      // if(_verbose > 0)
+      // {
+      //   // if printf not available (Arduino)
+      //   // char string_buffer[128]; // Buffer to hold the formatted string
+      //   // snprintf(string_buffer, sizeof(string_buffer), "command %s: %s", command.c_str(), sensorResponse.c_str());
+      //   // Serial.println(string_buffer);
+      //   print_response(command, sensorResponse);
+      // }
+
+      // return sensorResponse;
+    // }
 
     // String measureConcurrent(String measure_command, uint8_t address)
     // {
@@ -146,6 +149,7 @@ class PR2Comm
 
       _SDI12.sendCommand(command); // Send the SDI-12 command
       delay(50);                   // Wait for response to be ready
+      Logger::printf(Logger::INFO, "Command: '%s'", command);
 
       u_int8_t counter = 0;
       //Read the response from the sensor
@@ -159,7 +163,10 @@ class PR2Comm
             Serial.print(c, HEX); Serial.print(" ");
           }
           if(counter >= max_msg_length)
+          {
+            Logger::print("PR2Comm::requestAndReadData Max length reached!", Logger::ERROR);
             break;
+          }
         }
         delay(10);  // otherwise it would leave some chars to next message...
       }
@@ -167,6 +174,7 @@ class PR2Comm
         Serial.println("");
 
       *n_bytes = counter;
+      Logger::printHex(_msg_buf, counter);
       
       if(_verbose > 0)
       {
@@ -189,7 +197,7 @@ class PR2Comm
 
       if(n_bytes <= 5)
       {
-        Serial.printf("ERROR: PR2_comm [%s] - no valid response received!\n", measure_command.c_str());
+        Logger::printf(Logger::ERROR, "ERROR: PR2_comm [%s] - no valid response received!\n", measure_command.c_str());
         return nullptr;
       }
       // for(int i=0; i<n_bytes; i++)
@@ -214,7 +222,7 @@ class PR2Comm
 
         if(n_bytes <= 5)
         {
-          Serial.printf("ERROR: PR2_comm [%s] - no valid response received!\n", data_command.c_str());
+          Logger::printf(Logger::ERROR, "ERROR: PR2_comm [%s] - no valid response received!\n", data_command.c_str());
           *n_values = 0;
           return nullptr;
         }

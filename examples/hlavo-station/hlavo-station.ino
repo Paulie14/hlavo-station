@@ -1,6 +1,7 @@
 
 /*********************************************** COMMON ***********************************************/
 #include <Every.h>
+#include <Logger.h>
 
 #define PIN_ON 47 // napajeni !!!
 
@@ -117,7 +118,7 @@ void fine_data_collect()
   // should not happen
   if(num_fine_data_collected >= FINE_DATA_BUFSIZE)
   {
-    Serial.printf("Warning: Reached maximal buffer size for fine timer (%d)\n", num_fine_data_collected);
+    Logger::printf(Logger::ERROR, "Warning: Reached maximal buffer size for fine timer (%d)\n", num_fine_data_collected);
     meteo_data_collect();
     num_fine_data_collected = 0;
   }
@@ -147,7 +148,7 @@ void meteo_data_collect()
   // should not happen
   if(num_meteo_data_collected >= METEO_DATA_BUFSIZE)
   {
-    Serial.printf("Warning: Reached maximal buffer size for meteo data (%d)\n", num_meteo_data_collected);
+    Logger::printf(Logger::ERROR, "Warning: Reached maximal buffer size for meteo data (%d)", num_meteo_data_collected);
     meteo_data_write();
     num_meteo_data_collected = 0;
   }
@@ -182,11 +183,13 @@ void meteo_data_collect()
 void meteo_data_write()
 {
   // Fill the base class pointer array with addresses of derived class objects
+  Logger::printf(Logger::INFO, "meteo_data_write: %d collected", num_meteo_data_collected);
   DataBase* dbPtr[num_meteo_data_collected];
   for (int i = 0; i < num_meteo_data_collected; i++) {
       dbPtr[i] = &meteoDataBuffer[i];
   }
 
+  Logger::print("meteo_data_write - CSVHandler::appendData");
   CSVHandler::appendData(data_meteo_filename, dbPtr, num_meteo_data_collected);
   // start over from the beginning of buffer
   num_meteo_data_collected = 0;
@@ -209,6 +212,7 @@ void collect_and_write_PR2()
       Serial.printf("PR2[a%d]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg));
     }
 
+    Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
     CSVHandler::appendData(data_pr2_filenames[iss], &(pr2_readers[iss].data));
 
     pr2_readers[iss].Reset();
@@ -241,6 +245,20 @@ void setup() {
   rtc_clock.begin();
   DateTime dt = rtc_clock.now();
 
+// SD card setup
+  pinMode(SD_CS_PIN, OUTPUT);
+  // SD Card Initialization
+  if (SD.begin()){
+      Serial.println("SD card is ready to use.");
+  }
+  else{
+      Serial.println("SD card initialization failed");
+      return;
+  }
+  Logger::setup_log(rtc_clock, "logs");
+  Serial.println("Log set up.");
+  Logger::print("Log set up.");
+
   // weather station
   weather.setup(intAnemometer, intRaingauge, intPeriod);
 
@@ -250,7 +268,7 @@ void setup() {
   // humidity and temperature
   if (! sht4.begin())
   {
-    Serial.println("SHT4x not found.");
+    Logger::print("SHT4x not found.");
   }
 
   sht4.setPrecision(SHT4X_HIGH_PRECISION); // nejvyssi rozliseni
@@ -259,7 +277,7 @@ void setup() {
   // Light
   if(!lightMeter.begin())
   {
-    Serial.println("BH1750 (light) not found.");
+    Logger::print("BH1750 (light) not found.");
   }
 
   // PR2
@@ -272,20 +290,10 @@ void setup() {
   Serial.println("Opening SDI-12 for PR2...");
   pr2.begin();
 
-  delay(500);  // allow things to settle
-  String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
-  // Serial.println(si);
+  delay(1000);  // allow things to settle
+  uint8_t nbytes = 0;
+  pr2.requestAndReadData("?I!", &nbytes);  // Command to get sensor info
 
-  // SD card setup
-  pinMode(SD_CS_PIN, OUTPUT);
-  // SD Card Initialization
-  if (SD.begin()){
-      Serial.println("SD card is ready to use.");
-  }
-  else{
-      Serial.println("SD card initialization failed");
-      return;
-  }
 
   // Data files setup
   char csvLine[400];
@@ -303,6 +311,9 @@ void setup() {
 
   Serial.println("HLAVO station is running.");
   Serial.println(F("Start loop " __FILE__ " " __DATE__ " " __TIME__));
+
+  Logger::print("HLAVO station is running");
+
   Serial.println("=============================================================");
 
   // synchronize timers after setup
@@ -314,6 +325,7 @@ void setup() {
 
 /*********************************************** LOOP ***********************************************/ 
 void loop() {
+  
   
   weather.update();
 
@@ -333,6 +345,7 @@ void loop() {
     Serial.println("    **************************************** ******* ****************************************");
   }
 
+  
   // read values from PR2 sensors when reading not finished yet
   // and write to a file when last values received
   if(!pr2_all_finished && timer_PR2_power.after())
@@ -343,6 +356,7 @@ void loop() {
   if(timer_L3())
   {
     Serial.println("-------------------------- L3 TICK --------------------------");
+    Logger::print("L3 TICK");
     meteo_data_write();
 
     pr2_all_finished = false;
@@ -362,6 +376,7 @@ void loop() {
   if(timer_L4())
   {
     Serial.println("-------------------------- L4 TICK --------------------------");
+    Logger::print("L4 TICK - Reboot");
     Serial.printf("\nReboot...\n\n");
     delay(250);
     ESP.restart();

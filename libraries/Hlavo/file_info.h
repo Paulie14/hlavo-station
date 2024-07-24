@@ -20,13 +20,15 @@ class FileInfo
     
     private:
         fs::FS *_fs;
-        const char * _path;
+        char _path[200];
 };
 
 FileInfo::FileInfo(fs::FS &fs, const char * path)
 {
     _fs = &fs;
-    _path = path;
+    // _path=path;
+    snprintf(_path, sizeof(_path),"%s", path);
+    //strcpy(_path, path);
 }
 
 
@@ -51,7 +53,7 @@ void FileInfo::write(const char * message){
 }
 
 void FileInfo::append(const char * message){
-    Serial.printf("Appending to file: %s\n", _path);
+    //Serial.printf("Appending to file: %s\n", _path);
 
     File file = _fs->open(_path, FILE_APPEND);
     if(!file){
@@ -59,7 +61,7 @@ void FileInfo::append(const char * message){
         return;
     }
     if(file.print(message)){
-        Serial.println("Message appended");
+        //Serial.println("Message appended");
     } else {
         Serial.println("Append failed");
     }
@@ -85,7 +87,9 @@ void FileInfo::read(){
 void FileInfo::rename(const char * new_path){
     Serial.printf("Renaming file %s to %s\n", _path, new_path);
     if (_fs->rename(_path, new_path)) {
-        _path = new_path;
+        //_path = new_path;
+        snprintf(_path, sizeof(_path),"%s", new_path);
+        //sprintf(_path,"%s", new_path);
         Serial.println("File renamed");
     } else {
         Serial.println("Rename failed");
