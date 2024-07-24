@@ -23,52 +23,56 @@ class PR2Reader{
     PR2Data data;
     bool finished = false;
 
-    PR2Reader(PR2Comm &pr2_comm, uint8_t address)
-    :_address(address), _pr2_comm(pr2_comm)
-    {
-      Reset();
-    }
+    PR2Reader(PR2Comm &pr2_comm, uint8_t address);
+    void TryRequest();
+    void TryRead();
+    void Reset();
+};
 
-    void TryRequest()
+
+PR2Reader::PR2Reader(PR2Comm &pr2_comm, uint8_t address)
+  :_address(address), _pr2_comm(pr2_comm)
+{
+  Reset();
+}
+
+void PR2Reader::TryRequest()
+{
+  if(!pr2_delay_timer.running)
+  {
+    _pr2_comm.measureRequest(_list_of_commands[icmd], _address);
+    pr2_delay_timer.reset();
+  }
+}
+
+void PR2Reader::TryRead()
+{
+  if(pr2_delay_timer())
+  {
+    char* res = _pr2_comm.measureRead(_address, rec_values, &rec_n_values);
+    // _pr2_comm.print_values("field", rec_values, rec_n_values);
+    if(res != nullptr)
     {
-      if(!pr2_delay_timer.running)
+      switch(icmd)
       {
-        _pr2_comm.measureRequest(_list_of_commands[icmd], _address);
-        pr2_delay_timer.reset();
+        case 0: data.setPermitivity(rec_values, rec_n_values); break;
+        case 1: data.setSoilMoisture(rec_values, rec_n_values); break;
+        case 2: data.setRaw_ADC(&rec_values[1], rec_n_values-1); break;
       }
     }
+    icmd++;
 
-    void TryRead()
-    {
-      if(pr2_delay_timer())
-      {
-        char* res = _pr2_comm.measureRead(_address, rec_values, &rec_n_values);
-        // _pr2_comm.print_values("field", rec_values, rec_n_values);
-        if(res != nullptr)
-        {
-          switch(icmd)
-          {
-            case 0: data.setPermitivity(rec_values, rec_n_values); break;
-            case 1: data.setSoilMoisture(rec_values, rec_n_values); break;
-            case 2: data.setRaw_ADC(&rec_values[1], rec_n_values-1); break;
-          }
-        }
-        icmd++;
-
-        if(icmd == _n_fields)
-        {
-          icmd = 0;
-          finished = true;
-        }
-      }
-    }
-
-    void Reset()
+    if(icmd == _n_fields)
     {
       icmd = 0;
-      finished = false;
-      data = PR2Data();
+      finished = true;
     }
+  }
+}
 
-    
-};
+void PR2Reader::Reset()
+{
+  icmd = 0;
+  finished = false;
+  data = PR2Data();
+}
