@@ -2,6 +2,8 @@
 
 #include <RTClib.h> // just for DateTime
 #include "data_base.h"
+#include "common.h"
+using namespace hlavo;
 
 /// @brief Data class for handling PR2 data from a single sensor.
 class PR2Data : public DataBase{
@@ -60,13 +62,13 @@ char* PR2Data::headerToCsvLine(char* csvLine) {
   // Iterate through the array of strings
   for (uint8_t i = 0; i < n_columns; ++i) {
       // Concatenate the current string to the CSV line
-      strcat(csvLine, columnNames[i]);
+      strcat_safe(csvLine, columnNames[i]);
 
       // If it's not the last string, add the delimiter
       if (i < n_columns - 1)
-        strcat(csvLine, delimiter);
+        strcat_safe(csvLine, delimiter);
       else
-        strcat(csvLine, "\n");
+        strcat_safe(csvLine, "\n");
   }
 
   return csvLine;
@@ -87,24 +89,24 @@ PR2Data::PR2Data()
 char* PR2Data::dataToCsvLine(char* csvLine) const {
 
   const char * dt = datetime.timestamp().c_str();
-  sprintf(csvLine, "%s%s", dt, delimiter);
+  snprintf(csvLine, sizeof(csvLine), "%s%s", dt, delimiter);
   char number[10];
 
   for(uint8_t i=0; i<size; i++){
-    sprintf(number,"%.4f%s", permitivity[i], delimiter);
-    strcat(csvLine, number);
+    snprintf(number, sizeof(number), "%.4f%s", permitivity[i], delimiter);
+    strcat_safe(csvLine, number);
   }
   for(uint8_t i=0; i<size; i++){
-    sprintf(number,"%.4f%s", soil_moisture[i], delimiter);
-    strcat(csvLine, number);
+    snprintf(number, sizeof(number), "%.4f%s", soil_moisture[i], delimiter);
+    strcat_safe(csvLine, number);
   }
   for(uint8_t i=0; i<size-1; i++){
-    sprintf(number,"%.0f%s", raw_ADC[i], delimiter);
-    strcat(csvLine, number);
+    snprintf(number, sizeof(number), "%.0f%s", raw_ADC[i], delimiter);
+    strcat_safe(csvLine, number);
   }
   // last value without delimiter
-  sprintf(number,"%.0f\n", raw_ADC[size-1]);
-  strcat(csvLine, number);
+  snprintf(number, sizeof(number), "%.0f\n", raw_ADC[size-1]);
+  strcat_safe(csvLine, number);
   // strcat(csvLine,"\n");
 
   return csvLine;
@@ -114,26 +116,26 @@ char* PR2Data::dataToCsvLine(char* csvLine) const {
 char* PR2Data::print(char* msg_buf) const {
 
   const char * dt = datetime.timestamp().c_str();
-  sprintf(msg_buf, "%s\n", dt);
+  snprintf(msg_buf, sizeof(msg_buf), "%s\n", dt);
   char number[10];
 
-  strcat(msg_buf, "    Perm. ");
+  strcat_safe(msg_buf, "    Perm. ");
   for(uint8_t i=0; i<size; i++){
-    sprintf(number,"%.4f, ", permitivity[i]);
-    strcat(msg_buf, number);
+    snprintf(number, sizeof(number), "%.4f, ", permitivity[i]);
+    strcat_safe(msg_buf, number);
   }
-  strcat(msg_buf, "\n    SoilM. ");
+  strcat_safe(msg_buf, "\n    SoilM. ");
   for(uint8_t i=0; i<size; i++){
-    sprintf(number,"%.4f, ", soil_moisture[i]);
-    strcat(msg_buf, number);
+    snprintf(number, sizeof(number), "%.4f, ", soil_moisture[i]);
+    strcat_safe(msg_buf, number);
   }
-  strcat(msg_buf, "\n    RawADC. ");
+  strcat_safe(msg_buf, "\n    RawADC. ");
   for(uint8_t i=0; i<size-1; i++){
     sprintf(number,"%.0f, ", raw_ADC[i]);
-    strcat(msg_buf, number);
+    strcat_safe(msg_buf, number);
   }
   // last value without delimiter
-  sprintf(number,"%.0f", raw_ADC[size-1]);
-  strcat(msg_buf, number);
+  snprintf(number, sizeof(number), "%.0f", raw_ADC[size-1]);
+  strcat_safe(msg_buf, number);
   return msg_buf;
 }
