@@ -5,26 +5,31 @@
 #include "file_info.h"
 #include "data_base.h"
 
+#include "common.h"
+using namespace hlavo;
+
 /// @brief Wrapper class for SD card and CSV file handling.
 class CSVHandler
 {
   public:
     static void createFile(char* user_filename, char* header, const DateTime& dt, const char* dir_name)
     {
+      // date to string
       char dt_buf[20];
       sprintf(dt_buf, "YY-MM-DD_hh-mm-ss");
       dt.toString(dt_buf);
 
-      char temp_filename[100];
+      char temp_filename[max_filepath_length];
       if(strlen(dir_name) >0){
-        char dir_path[100];
-        sprintf(dir_path, "/%s", dir_name);
+        char dir_path[max_dirpath_length];
+        snprintf(dir_path, sizeof(dir_path), "/%s", dir_name);
         SD.mkdir(dir_path);
-        sprintf(temp_filename, "/%s/%s_%s", dir_name, dt_buf, user_filename);
+        snprintf(temp_filename, sizeof(temp_filename), "/%s/%s_%s", dir_name, dt_buf, user_filename);
       }
       else
-        sprintf(temp_filename, "/%s_%s", dt_buf, user_filename);
-      strcpy(user_filename, temp_filename);
+        snprintf(temp_filename, sizeof(temp_filename), "/%s_%s", dt_buf, user_filename);
+
+      snprintf(user_filename, sizeof(user_filename), "%s", temp_filename);
 
       Serial.printf("Creating file: %s\n", user_filename);
       FileInfo datafile(SD, user_filename);
@@ -33,7 +38,7 @@ class CSVHandler
 
     static void appendData(char* filename, DataBase* data)
     {
-      char csvLine[400];
+      char csvLine[max_csvline_length];
       File file = SD.open(filename, FILE_APPEND);
       if(!file){
           Serial.println("Failed to open file for appending");
@@ -54,7 +59,7 @@ class CSVHandler
     static void appendData(char* filename, DataBase* data[], uint8_t n_data)
     {
       //Serial.printf("appendData: N %d\n", n_data);
-      char csvLine[400];
+      char csvLine[max_csvline_length];
       File file = SD.open(filename, FILE_APPEND);
       if(!file){
           Serial.println("Failed to open file for appending");

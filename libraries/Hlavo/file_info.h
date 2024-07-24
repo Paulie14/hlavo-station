@@ -1,7 +1,9 @@
-#include "FS.h"
-
 #ifndef FILE_INFO_H
 #define FILE_INFO_H
+
+#include "FS.h"
+#include "common.h"
+using namespace hlavo;
 
 class FileInfo
 {
@@ -20,15 +22,13 @@ class FileInfo
     
     private:
         fs::FS *_fs;
-        char _path[200];
+        char _path[max_filepath_length];
 };
 
 FileInfo::FileInfo(fs::FS &fs, const char * path)
 {
     _fs = &fs;
-    // _path=path;
     snprintf(_path, sizeof(_path),"%s", path);
-    //strcpy(_path, path);
 }
 
 
@@ -37,7 +37,7 @@ bool FileInfo::exists(){
 }
 
 void FileInfo::write(const char * message){
-    Serial.printf("Writing file: %s\n", _path);
+    // Serial.printf("Writing file: %s\n", _path);
 
     File file = _fs->open(_path, FILE_WRITE);
     if(!file){
@@ -45,7 +45,7 @@ void FileInfo::write(const char * message){
         return;
     }
     if(file.print(message)){
-        Serial.println("File written");
+        // Serial.println("File written");
     } else {
         Serial.println("Write failed");
     }
@@ -69,7 +69,7 @@ void FileInfo::append(const char * message){
 }
 
 void FileInfo::read(){
-    Serial.printf("Reading file: %s\n", _path);
+    // Serial.printf("Reading file: %s\n", _path);
 
     File file = _fs->open(_path);
     if(!file){
@@ -77,7 +77,7 @@ void FileInfo::read(){
         return;
     }
 
-    Serial.print("Read from file: ");
+    // Serial.print("Read from file: ");
     while(file.available()){
         Serial.write(file.read());
     }
@@ -87,10 +87,8 @@ void FileInfo::read(){
 void FileInfo::rename(const char * new_path){
     Serial.printf("Renaming file %s to %s\n", _path, new_path);
     if (_fs->rename(_path, new_path)) {
-        //_path = new_path;
         snprintf(_path, sizeof(_path),"%s", new_path);
-        //sprintf(_path,"%s", new_path);
-        Serial.println("File renamed");
+        // Serial.println("File renamed");
     } else {
         Serial.println("Rename failed");
     }
@@ -99,7 +97,7 @@ void FileInfo::rename(const char * new_path){
 void FileInfo::remove(){
     Serial.printf("Deleting file: %s\n", _path);
     if(_fs->remove(_path)){
-        Serial.println("File deleted");
+        // Serial.println("File deleted");
     } else {
         Serial.println("Delete failed");
     }
@@ -132,7 +130,7 @@ FileInfo FileInfo::copy(const char * new_path)
   // Close files
   sourceFile.close();
   destinationFile.close();
-  Serial.println("Copying finished.");
+  // Serial.println("Copying finished.");
   return FileInfo(*_fs, new_path);
 }
 

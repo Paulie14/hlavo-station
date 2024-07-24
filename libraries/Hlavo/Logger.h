@@ -5,6 +5,7 @@
 #include "file_info.h"
 #include "clock.h"
 #include <stdarg.h>
+#include "common.h"
 
 /// @brief Wrapper class for SD card and CSV file handling.
 class Logger
@@ -23,7 +24,7 @@ class Logger
   private:
     // static const int _retentionDays = 7;
     static Clock* _rtc_clock;
-    static char _logDirectory[100];
+    static char _logDirectory[hlavo::max_dirpath_length];
     static FileInfo _logfile;
     static const int log_msg_maxsize = 550;
     static char _log_buf[log_msg_maxsize];
@@ -45,7 +46,7 @@ void Logger::setup_log(Clock &clock, const char* dir_name)
 {
   _rtc_clock = &clock;
 
-  sprintf(_logDirectory, "/%s", dir_name);
+  snprintf(_logDirectory, sizeof(_logDirectory), "/%s", dir_name);
 
   if (!SD.exists(_logDirectory)) {
       SD.mkdir(_logDirectory);
@@ -57,7 +58,7 @@ void Logger::setup_log(Clock &clock, const char* dir_name)
 void Logger::print(const char* msg, MessageType type) {
     DateTime now = _rtc_clock->now();
 
-    sprintf(_log_buf, "%s: [%s] %s\n", now.timestamp().c_str(), messageTypeToString(type), msg);
+    snprintf(_log_buf, sizeof(_log_buf), "%s: [%s] %s\n", now.timestamp().c_str(), messageTypeToString(type), msg);
     Serial.print(_log_buf);
     _logfile.append(_log_buf);
 }
@@ -121,7 +122,7 @@ void Logger::cleanup_old_logs(int retentionDays) {
 
 void Logger::createLogFileName() {
     DateTime now = _rtc_clock->now();
-    char buf[200];
+    char buf[hlavo::max_filepath_length];
     snprintf(buf, sizeof(buf), "%s/%04d%02d%02d_hlavo_station.log", _logDirectory, now.year(), now.month(), now.day());
     Serial.println(buf);
     _logfile = FileInfo(SD, buf);
