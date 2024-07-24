@@ -3,6 +3,7 @@
 #include <RTClib.h> // just for DateTime
 #include "data_base.h"
 #include "common.h"
+using namespace hlavo;
 
 #define NUM_FINE_VALUES 4         // humidity, temperature, light_mean, battery_voltage
 #define FINE_DATA_BUFSIZE 70      // 60 per 1 min
@@ -57,13 +58,13 @@ char* MeteoData::headerToCsvLine(char* csvLine){
     // Iterate through the array of strings
     for (int i = 0; i < n_columns; ++i) {
         // Concatenate the current string to the CSV line
-        strcat(csvLine, columnNames[i]);
+        strcat_safe(csvLine, columnNames[i]);
 
         // If it's not the last string, add the delimiter
         if (i < n_columns - 1)
-          strcat(csvLine, delimiter);
+          strcat_safe(csvLine, delimiter);
         else
-          strcat(csvLine, "\n");
+          strcat_safe(csvLine, "\n");
     }
 
     return csvLine;
@@ -94,7 +95,8 @@ char* MeteoData::dataToCsvLine(char* csvLine) const
   // sprintf(datetime, "%04d-%02d-%02d %02d:%02d:%02d%c%.2f%c%u%c%u%c%.2f%c%.2f%c%.2f\n",
   //         data.datetime.year(), data.datetime.month(), data.datetime.day(),
   //         data.datetime.hour(), data.datetime.minute(), data.datetime.second());
-  sprintf(csvLine, "%s%s"
+  snprintf(csvLine, sizeof(csvLine),
+          "%s%s"    // datetime
           "%.1f%s"  // wind direction
           "%.2f%s"  // wind speed
           "%.2f%s"  // raingauge
@@ -155,7 +157,8 @@ char* MeteoData::print(char* msg_buf) const
 {
   const char * dt = datetime.timestamp().c_str();
 
-  sprintf(msg_buf, "%s   "
+  snprintf(msg_buf,  sizeof(msg_buf),
+          "%s   "
           "WindDir %.1f, "  // wind direction
           "WindSpd %.2f, "  // wind speed
           "Rain %.2f,  "  // raingauge
