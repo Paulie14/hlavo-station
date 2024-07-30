@@ -328,6 +328,14 @@ void scan_I2C()
 }
 
 
+void measureBME280()
+{
+  BME280_SensorMeasurements measurements;
+  tempSensor.readAllMeasurements(&measurements); // tempScale = 0 => Celsius
+
+  Serial.printf("Humidity: %.0f, Pressure: %.0f, Temperature: %.2f\n", measurements.humidity, measurements.pressure, measurements.temperature);
+}
+
 
 
 /*********************************************** LOOP ***********************************************/ 
@@ -346,16 +354,15 @@ void loop() {
     Serial.print("Light: ");
     Serial.println(light_lux);
 
-    Serial.print("Humidity: ");
-    Serial.print(tempSensor.readFloatHumidity(), 0);
+    // Serial.print("Humidity: ");
+    // Serial.print(tempSensor.readFloatHumidity(), 0);
+    // Serial.print(" Pressure: ");
+    // Serial.print(tempSensor.readFloatPressure(), 0);
+    // Serial.print(" Temp: ");
+    // Serial.print(tempSensor.readTempC(), 2);
+    // Serial.println();
 
-    Serial.print(" Pressure: ");
-    Serial.print(tempSensor.readFloatPressure(), 0);
-
-    Serial.print(" Temp: ");
-    Serial.print(tempSensor.readTempC(), 2);
-
-    Serial.println();
+    measureBME280();
 
   }
 
