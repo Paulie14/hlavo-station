@@ -5,6 +5,7 @@
 
 #define PIN_ON 47 // napajeni !!!
 
+const char* setup_interrupt = "SETUP INTERRUPTED";
 
 /************************************************ RUN ************************************************/
 // Switch between testing/setup and long term run.
@@ -41,6 +42,7 @@
 
 /************************************************* RTC *************************************************/
 // definice sbernice i2C pro RTC (real time clock)
+// I2C address 0x68
 #define rtc_SDA_PIN 42 // data pin
 #define rtc_SCL_PIN 2  // clock pin
 #include "clock.h"
@@ -59,6 +61,7 @@ ESP32AnalogRead adc;
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 
 #include "BH1750.h"
+// default I2C address 0x23 (set in constructor)
 BH1750 lightMeter;
 
 /****************************************** WHEATHER STATION ******************************************/
@@ -111,7 +114,7 @@ int num_meteo_data_collected = 0;
 void fine_data_collect()
 {
   sensors_event_t humidity, temp;
-  sht4.getEvent(&humidity, &temp);
+  bool sht4_res = sht4.getEvent(&humidity, &temp);
   float light_lux = lightMeter.readLightLevel();
   float battery = adc.readVoltage() * DeviderRatio;
 
@@ -124,8 +127,15 @@ void fine_data_collect()
   }
 
   int i = num_fine_data_collected;
-  fineDataBuffer[0][i] = humidity.relative_humidity;
-  fineDataBuffer[1][i] = temp.temperature;
+  if(sht4_res){
+    fineDataBuffer[0][i] = humidity.relative_humidity;
+    fineDataBuffer[1][i] = temp.temperature;
+  }
+  else{
+    fineDataBuffer[0][i] = 0.0f;
+    fineDataBuffer[1][i] = -0.0f;
+  }
+
   fineDataBuffer[2][i] = light_lux;
   fineDataBuffer[3][i] = battery;
 
@@ -236,6 +246,7 @@ void setup() {
 
   Serial.println("Starting HLAVO station setup.");
 
+  // necessary for I2C
   // for version over 3.5 need to turn uSUP ON
   Serial.print("set power pin: "); Serial.println(PIN_ON);
   pinMode(PIN_ON, OUTPUT);      // Set EN pin for uSUP stabilisator as output
@@ -252,8 +263,9 @@ void setup() {
       Serial.println("SD card is ready to use.");
   }
   else{
-      Serial.println("SD card initialization failed");
-      return;
+      Serial.println("SD card initialization failed.");
+      Serial.println(setup_interrupt);
+      while(1){delay(1000);}
   }
   Logger::setup_log(rtc_clock, "logs");
   Serial.println("Log set up.");
@@ -268,7 +280,7 @@ void setup() {
   // humidity and temperature
   if (! sht4.begin())
   {
-    Logger::print("SHT4x not found.");
+    Logger::print("SHT4x not found.", Logger::WARN);
   }
 
   sht4.setPrecision(SHT4X_HIGH_PRECISION); // nejvyssi rozliseni
@@ -277,7 +289,7 @@ void setup() {
   // Light
   if(!lightMeter.begin())
   {
-    Logger::print("BH1750 (light) not found.");
+    Logger::print("BH1750 (light) not found.", Logger::WARN);
   }
 
   // PR2
@@ -294,6 +306,7 @@ void setup() {
   uint8_t nbytes = 0;
   pr2.requestAndReadData("?I!", &nbytes);  // Command to get sensor info
 
+  // while(1){delay(100);}
 
   // Data files setup
   char csvLine[max_csvline_length];
