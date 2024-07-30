@@ -217,7 +217,7 @@ void collect_and_write_PR2()
 
     pr2_readers[iss].Reset();
     iss++;
-    if(iss == 2)
+    if(iss == n_pr2_sensors)
     {
       iss = 0;
       pr2_all_finished = true;
