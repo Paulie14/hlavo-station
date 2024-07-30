@@ -167,7 +167,7 @@ void meteo_data_collect()
   if(VERBOSE >= 1)
   {
     char msg[400];
-    Serial.printf("    %s\n", data.print(msg));
+    Serial.printf("    %s\n", data.print(msg, sizeof(msg)));
     // data.dataToCsvLine(msg);
     // Serial.println(msg);
   }
@@ -209,7 +209,7 @@ void collect_and_write_PR2()
     {
       // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
       char msg[400];
-      Serial.printf("PR2[a%d]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg));
+      Serial.printf("PR2[a%d]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg, sizeof(msg)));
     }
 
     Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
@@ -296,16 +296,16 @@ void setup() {
 
 
   // Data files setup
-  char csvLine[400];
+  char csvLine[max_csvline_length];
   const char* meteo_dir="meteo";
   CSVHandler::createFile(data_meteo_filename,
-                            MeteoData::headerToCsvLine(csvLine),
+                            MeteoData::headerToCsvLine(csvLine, max_csvline_length),
                             dt, meteo_dir);
   for(int i=0; i<n_pr2_sensors; i++){
     char pr2_dir[20];
     sprintf(pr2_dir, "pr2_sensor_%d", i);
     CSVHandler::createFile(data_pr2_filenames[i],
-                              PR2Data::headerToCsvLine(csvLine),
+                              PR2Data::headerToCsvLine(csvLine, max_csvline_length),
                               dt, pr2_dir);
   }
 

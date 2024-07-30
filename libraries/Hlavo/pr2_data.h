@@ -8,17 +8,17 @@ using namespace hlavo;
 /// @brief Data class for handling PR2 data from a single sensor.
 class PR2Data : public DataBase{
   public:
-    static const uint8_t size = 6;
+    static const uint8_t data_size = 6;
 
-    float permitivity[size];
-    float soil_moisture[size];
-    float raw_ADC[size];
+    float permitivity[data_size];
+    float soil_moisture[data_size];
+    float raw_ADC[data_size];
 
-    static char* headerToCsvLine(char* csvLine);
+    static char* headerToCsvLine(char* csvLine, size_t size);
 
     PR2Data();
-    char* dataToCsvLine(char* csvLine) const override;
-    char* print(char* msg_buf) const ;
+    char* dataToCsvLine(char* csvLine, size_t size) const override;
+    char* print(char* msg_buf, size_t size) const;
 
     void setPermitivity(float* sourceArray, uint8_t n_values)
     {
@@ -43,18 +43,18 @@ class PR2Data : public DataBase{
 };
 
 
-char* PR2Data::headerToCsvLine(char* csvLine) {
+char* PR2Data::headerToCsvLine(char* csvLine, size_t size) {
   // datetime + 3 fields
-  const uint8_t n_columns = 1 + size*3;
+  const uint8_t n_columns = 1 + data_size*3;
   char columnNames[n_columns][20];
 
   uint8_t j = 0;
   sprintf(columnNames[j++],"DateTime");
-  for(uint8_t i=0; i<size; i++)
+  for(uint8_t i=0; i<data_size; i++)
     sprintf(columnNames[j++],"Perm_%d", i);
-  for(uint8_t i=0; i<size; i++)
+  for(uint8_t i=0; i<data_size; i++)
     sprintf(columnNames[j++],"SoilMoistMin_%d", i);
-  for(uint8_t i=0; i<size; i++)
+  for(uint8_t i=0; i<data_size; i++)
     sprintf(columnNames[j++],"rawADC_%d", i);
   
   csvLine[0] = '\0'; // Initialize the CSV line as an empty string
@@ -62,13 +62,13 @@ char* PR2Data::headerToCsvLine(char* csvLine) {
   // Iterate through the array of strings
   for (uint8_t i = 0; i < n_columns; ++i) {
       // Concatenate the current string to the CSV line
-      strcat_safe(csvLine, columnNames[i]);
+      strcat_safe(csvLine, size, columnNames[i]);
 
       // If it's not the last string, add the delimiter
       if (i < n_columns - 1)
-        strcat_safe(csvLine, delimiter);
+        strcat_safe(csvLine, size, delimiter);
       else
-        strcat_safe(csvLine, "\n");
+        strcat_safe(csvLine, size, "\n");
   }
 
   return csvLine;
@@ -77,7 +77,7 @@ char* PR2Data::headerToCsvLine(char* csvLine) {
 PR2Data::PR2Data()
   : DataBase()
 {
-  for(uint8_t i=0; i<size; i++)
+  for(uint8_t i=0; i<data_size; i++)
   {
     permitivity[i] = 0.0f;
     soil_moisture[i] = 0.0f;
@@ -86,56 +86,56 @@ PR2Data::PR2Data()
 }
 
 // Function to convert MeteoData struct to CSV string with a custom delimiter
-char* PR2Data::dataToCsvLine(char* csvLine) const {
+char* PR2Data::dataToCsvLine(char* csvLine, size_t size) const {
 
   const char * dt = datetime.timestamp().c_str();
-  snprintf(csvLine, sizeof(csvLine), "%s%s", dt, delimiter);
+  snprintf(csvLine, size, "%s%s", dt, delimiter);
   char number[10];
 
-  for(uint8_t i=0; i<size; i++){
+  for(uint8_t i=0; i<data_size; i++){
     snprintf(number, sizeof(number), "%.4f%s", permitivity[i], delimiter);
-    strcat_safe(csvLine, number);
+    strcat_safe(csvLine, size, number);
   }
-  for(uint8_t i=0; i<size; i++){
+  for(uint8_t i=0; i<data_size; i++){
     snprintf(number, sizeof(number), "%.4f%s", soil_moisture[i], delimiter);
-    strcat_safe(csvLine, number);
+    strcat_safe(csvLine, size, number);
   }
-  for(uint8_t i=0; i<size-1; i++){
+  for(uint8_t i=0; i<data_size-1; i++){
     snprintf(number, sizeof(number), "%.0f%s", raw_ADC[i], delimiter);
-    strcat_safe(csvLine, number);
+    strcat_safe(csvLine, size, number);
   }
   // last value without delimiter
-  snprintf(number, sizeof(number), "%.0f\n", raw_ADC[size-1]);
-  strcat_safe(csvLine, number);
+  snprintf(number, sizeof(number), "%.0f\n", raw_ADC[data_size-1]);
+  strcat_safe(csvLine, size, number);
   // strcat(csvLine,"\n");
 
   return csvLine;
 }
 
 // Print MeteoData
-char* PR2Data::print(char* msg_buf) const {
+char* PR2Data::print(char* msg_buf, size_t size) const {
 
   const char * dt = datetime.timestamp().c_str();
-  snprintf(msg_buf, sizeof(msg_buf), "%s\n", dt);
+  snprintf(msg_buf, size, "%s\n", dt);
   char number[10];
 
-  strcat_safe(msg_buf, "    Perm. ");
-  for(uint8_t i=0; i<size; i++){
+  strcat_safe(msg_buf, size, "    Perm. ");
+  for(uint8_t i=0; i<data_size; i++){
     snprintf(number, sizeof(number), "%.4f, ", permitivity[i]);
-    strcat_safe(msg_buf, number);
+    strcat_safe(msg_buf, size, number);
   }
-  strcat_safe(msg_buf, "\n    SoilM. ");
-  for(uint8_t i=0; i<size; i++){
+  strcat_safe(msg_buf, size, "\n    SoilM. ");
+  for(uint8_t i=0; i<data_size; i++){
     snprintf(number, sizeof(number), "%.4f, ", soil_moisture[i]);
-    strcat_safe(msg_buf, number);
+    strcat_safe(msg_buf, size, number);
   }
-  strcat_safe(msg_buf, "\n    RawADC. ");
-  for(uint8_t i=0; i<size-1; i++){
-    sprintf(number,"%.0f, ", raw_ADC[i]);
-    strcat_safe(msg_buf, number);
+  strcat_safe(msg_buf, size, "\n    RawADC. ");
+  for(uint8_t i=0; i<data_size-1; i++){
+    snprintf(number, sizeof(number), "%.0f, ", raw_ADC[i]);
+    strcat_safe(msg_buf, size, number);
   }
   // last value without delimiter
-  snprintf(number, sizeof(number), "%.0f", raw_ADC[size-1]);
-  strcat_safe(msg_buf, number);
+  snprintf(number, sizeof(number), "%.0f", raw_ADC[data_size-1]);
+  strcat_safe(msg_buf, size, number);
   return msg_buf;
 }

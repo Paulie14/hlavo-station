@@ -27,17 +27,17 @@ class MeteoData : public DataBase{
     float battery_voltage_mean, battery_voltage_var;
 
 
-    static char* headerToCsvLine(char* csvLine);
+    static char* headerToCsvLine(char* csvLine, size_t size);
     MeteoData();
     // Function to convert MeteoData struct to CSV string with a custom delimiter
-    char* dataToCsvLine(char* csvLine) const override;
+    char* dataToCsvLine(char* csvLine, size_t size) const override;
     void compute_statistics(float fineValues[][FINE_DATA_BUFSIZE], u16_t size_m, u16_t size_n);
     // Print MeteoData
-    char* print(char* msg_buf) const;
+    char* print(char* msg_buf, size_t size) const;
 };
 
 
-char* MeteoData::headerToCsvLine(char* csvLine){
+char* MeteoData::headerToCsvLine(char* csvLine, size_t size){
     const int n_columns = 12;
     const char* columnNames[] = {
       "DateTime",
@@ -58,13 +58,13 @@ char* MeteoData::headerToCsvLine(char* csvLine){
     // Iterate through the array of strings
     for (int i = 0; i < n_columns; ++i) {
         // Concatenate the current string to the CSV line
-        strcat_safe(csvLine, columnNames[i]);
+        strcat_safe(csvLine, size, columnNames[i]);
 
         // If it's not the last string, add the delimiter
         if (i < n_columns - 1)
-          strcat_safe(csvLine, delimiter);
+          strcat_safe(csvLine, size, delimiter);
         else
-          strcat_safe(csvLine, "\n");
+          strcat_safe(csvLine, size, "\n");
     }
 
     return csvLine;
@@ -88,14 +88,14 @@ MeteoData::MeteoData()
   battery_voltage_var = 0.0f;
 }
 
-char* MeteoData::dataToCsvLine(char* csvLine) const
+char* MeteoData::dataToCsvLine(char* csvLine, size_t size) const
 {
   const char * dt = datetime.timestamp().c_str();
   // Format datetime in "YYYY-MM-DD HH:MM:SS" format
   // sprintf(datetime, "%04d-%02d-%02d %02d:%02d:%02d%c%.2f%c%u%c%u%c%.2f%c%.2f%c%.2f\n",
   //         data.datetime.year(), data.datetime.month(), data.datetime.day(),
   //         data.datetime.hour(), data.datetime.minute(), data.datetime.second());
-  snprintf(csvLine, sizeof(csvLine),
+  snprintf(csvLine, size,
           "%s%s"    // datetime
           "%.1f%s"  // wind direction
           "%.2f%s"  // wind speed
@@ -153,11 +153,9 @@ void MeteoData::compute_statistics(float fineValues[][FINE_DATA_BUFSIZE], u16_t 
   battery_voltage_var = var[3];
 }
 
-char* MeteoData::print(char* msg_buf) const
+char* MeteoData::print(char* msg_buf, size_t size) const
 {
-  const char * dt = datetime.timestamp().c_str();
-
-  snprintf(msg_buf,  sizeof(msg_buf),
+  snprintf(msg_buf,  size,
           "%s   "
           "WindDir %.1f, "  // wind direction
           "WindSpd %.2f, "  // wind speed
@@ -166,7 +164,7 @@ char* MeteoData::print(char* msg_buf) const
           "Temp %.2f, " // temperature
           "Light %.0f, " // light
           "Bat %.3f",// battery
-          dt,
+          datetime.timestamp().c_str(),
           wind_direction,
           wind_speed,
           raingauge,
