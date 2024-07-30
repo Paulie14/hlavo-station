@@ -16,8 +16,8 @@ class Logger
 
     static void print(const char* msg, MessageType type = INFO);
     static void print(const String& msg, MessageType type = INFO);
-    static void printf(MessageType type, const char* format, ...);
     static void printHex(const char* data, size_t length, MessageType type = INFO);
+    static void printf(MessageType type, const char* format, ...);
 
     static void cleanup_old_logs(int retentionDays = 7);
 
@@ -29,13 +29,14 @@ class Logger
     static const int log_msg_maxsize = 550;
     static char _log_buf[log_msg_maxsize];
 
+    static void clean_buf();
     static void createLogFileName();
     static String messageTypeToString(MessageType type);
 };
 
 // Static member initialization
 Clock* Logger::_rtc_clock = nullptr;
-char Logger::_logDirectory[100] = "/logs";
+char Logger::_logDirectory[hlavo::max_dirpath_length] = "/logs";
 FileInfo Logger::_logfile = FileInfo(SD, "/logs/hlavo_station.log");
 char Logger::_log_buf[log_msg_maxsize] = "";
 
@@ -46,7 +47,7 @@ void Logger::setup_log(Clock &clock, const char* dir_name)
 {
   _rtc_clock = &clock;
 
-  snprintf(_logDirectory, sizeof(_logDirectory), "/%s", dir_name);
+  snprintf(_logDirectory, hlavo::max_dirpath_length, "/%s", dir_name);
 
   if (!SD.exists(_logDirectory)) {
       SD.mkdir(_logDirectory);
@@ -55,7 +56,14 @@ void Logger::setup_log(Clock &clock, const char* dir_name)
   createLogFileName();
 }
 
+void Logger::clean_buf()
+{
+  for(int i=0; i<log_msg_maxsize; i++)
+    _log_buf[i] = '\0';
+}
+
 void Logger::print(const char* msg, MessageType type) {
+    clean_buf();
     DateTime now = _rtc_clock->now();
 
     snprintf(_log_buf, sizeof(_log_buf), "%s: [%s] %s\n", now.timestamp().c_str(), messageTypeToString(type), msg);
@@ -67,22 +75,33 @@ void Logger::print(const String& msg, MessageType type) {
     print(msg.c_str());
 }
 
-void Logger::printf(MessageType type, const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    vsnprintf(_log_buf, sizeof(_log_buf), format, args);
-    va_end(args);
-    print(_log_buf);
-}
-
 void Logger::printHex(const char* data, size_t length, MessageType type) {
-    String hexString = "";
+    String hexString = "HEX: ";
     char buf[4]; // Enough to store "FF "
     for (size_t i = 0; i < length; i++) {
         snprintf(buf, sizeof(buf), "%02X ", static_cast<unsigned char>(data[i]));
         hexString += buf;
     }
     print(hexString, type);
+}
+
+void Logger::printf(MessageType type, const char* format, ...) {
+    clean_buf();
+    va_list args;
+    va_start(args, format);
+
+    // print start
+    DateTime now = _rtc_clock->now();
+    char head[50];
+    snprintf(head, sizeof(head), "%s: [%s] ", now.timestamp().c_str(), messageTypeToString(type));
+    snprintf(_log_buf, sizeof(_log_buf), "%s", head);
+    size_t offset = strlen(_log_buf);
+
+    vsnprintf(_log_buf + offset, sizeof(_log_buf)-offset, format, args);
+    va_end(args);
+
+    Serial.println(_log_buf);
+    _logfile.append(_log_buf);
 }
 
 void Logger::cleanup_old_logs(int retentionDays) {
