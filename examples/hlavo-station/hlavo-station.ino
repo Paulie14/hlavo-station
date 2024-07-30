@@ -40,13 +40,17 @@ const char* setup_interrupt = "SETUP INTERRUPTED";
 // SD card pin
 #define SD_CS_PIN 10
 
+
+/************************************************* I2C *************************************************/
+#include <Wire.h>
+#define I2C_SDA_PIN 42 // data pin
+#define I2C_SCL_PIN 2  // clock pin
+
 /************************************************* RTC *************************************************/
 // definice sbernice i2C pro RTC (real time clock)
 // I2C address 0x68
-#define rtc_SDA_PIN 42 // data pin
-#define rtc_SCL_PIN 2  // clock pin
 #include "clock.h"
-Clock rtc_clock(rtc_SDA_PIN, rtc_SCL_PIN);
+Clock rtc_clock;
 
 
 /*********************************************** BATTERY ***********************************************/
@@ -243,6 +247,7 @@ void setup() {
   {
       ; // cekani na Serial port
   }
+  String summary = "";
 
   Serial.println("Starting HLAVO station setup.");
 
@@ -251,9 +256,34 @@ void setup() {
   Serial.print("set power pin: "); Serial.println(PIN_ON);
   pinMode(PIN_ON, OUTPUT);      // Set EN pin for uSUP stabilisator as output
   digitalWrite(PIN_ON, HIGH);   // Turn on the uSUP power
+  summary += " - POWER PIN " +  String(PIN_ON) + " on\n";
+
+
+  // I2C setup
+  if(Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN))
+  {
+    Serial.println("TwoWire (I2C) is ready to use.");
+    summary += " - I2C [SDA " + String(I2C_SDA_PIN) + " SCL " + String(I2C_SCL_PIN) + "] ready\n";
+  }
+  else
+  {
+    Serial.println("TwoWire (I2C) initialization failed.");
+    Serial.println(setup_interrupt);
+    while(1){delay(1000);}
+  }
 
   // clock setup
-  rtc_clock.begin();
+  if(rtc_clock.begin())
+  {
+    Serial.println("RTC is ready to use.");
+    summary += " - RTC ready\n";
+  }
+  else
+  {
+    Serial.println("RTC initialization failed.");
+    Serial.println(setup_interrupt);
+    while(1){delay(1000);}
+  }
   DateTime dt = rtc_clock.now();
 
 // SD card setup
@@ -261,6 +291,7 @@ void setup() {
   // SD Card Initialization
   if (SD.begin()){
       Serial.println("SD card is ready to use.");
+      summary += " - SD card [pin " + String(SD_CS_PIN) + "] ready \n";
   }
   else{
       Serial.println("SD card initialization failed.");
@@ -278,8 +309,13 @@ void setup() {
   adc.attach(ADCpin); // setting ADC
 
   // humidity and temperature
-  if (! sht4.begin())
+  if (sht4.begin())
   {
+    summary += " - SHT4x ready\n";
+  }
+  else
+  {
+    summary += " - SHT4x FAILED\n";
     Logger::print("SHT4x not found.", Logger::WARN);
   }
 
@@ -287,8 +323,13 @@ void setup() {
   sht4.setHeater(SHT4X_NO_HEATER); // bez vnitrniho ohrevu
 
   // Light
-  if(!lightMeter.begin())
+  if(lightMeter.begin())
   {
+    summary += " - BH1750 ready\n";
+  }
+  else
+  {
+    summary += " - BH1750 FAILED\n";
     Logger::print("BH1750 (light) not found.", Logger::WARN);
   }
 
@@ -327,7 +368,11 @@ void setup() {
 
   Logger::print("HLAVO station is running");
 
-  Serial.println("=============================================================");
+  Serial.println("=======================================================================");
+  Serial.println("\nSUMMARY:");
+  Serial.println(summary);
+  Serial.println("=======================================================================");
+  delay(5000);
 
   // synchronize timers after setup
   timer_L3.reset(true);

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <Wire.h>
 #include <RTClib.h>
 #include <ESP32Time.h>
 
@@ -8,28 +7,21 @@
 class Clock {
   private:
     RTC_DS3231 rtc;
-    const uint8_t _data_pin;  // I2C data pin
-    const uint8_t _clock_pin; // I2C clock pin
     const char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
     ESP32Time internal_rtc;
 
   public:
     // Constructor
-    Clock(uint8_t data_pin, uint8_t clock_pin) 
-    : _data_pin(data_pin), _clock_pin(clock_pin)
+    Clock()
     {}
 
     // Initialize the clock
-    void begin() {
+    bool begin() {
       Serial.println("Initializing RTC...");
 
-      Wire.begin(_data_pin, _clock_pin);
-
       if (!rtc.begin()) {
-        Serial.println("Couldn't find RTC");
-        // Serial.flush();
-        // while (1) delay(10);
+        return false;
       }
       if (rtc.lostPower())
       {
@@ -46,6 +38,7 @@ class Clock {
 
       //Update internal RTC
       internal_rtc.setTime(rtc.now().unixtime());
+      return true;
     }
 
     RTC_DS3231& get_rtc()
