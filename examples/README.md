@@ -1,7 +1,11 @@
 # TESTS
 
 ### hlavo-station
-Main HLAVO script combining all sensors and output.
+Main HLAVO meteostation script combining all sensors and output.
+
+### hlavo-column
+Main HLAVO column experiment script.
+
 
 ## Weather meters
 
@@ -36,6 +40,9 @@ Weather station full working test.
 
 ## PR2 sensors
 
+### Arduino_SDI12_PR2
+Minimalistic test. SDI12 communication with PR2 on Arduino
+
 ### hlavo-PR2
 Minimalistic test. Communication with PR2 using Arduino SDI12 library.
 - works fine with Arduino
@@ -51,3 +58,17 @@ Minimalistic test. Communication with PR2 using ESP32-SDI12 library.
 - can send measure request with responce
 - does not receive any data (actually requests data in infinite loop)
 - problems caused by randomly receiving null character (solved in `hlavo-station`)
+
+
+## Teros31 sensors with Arduino
+
+### Arduino_SDI12_Teros31
+Minimalistic test. Not working.
+Tests communication with Teros31 over SDI12 similar to PR2.
+
+### Arduino_Serial_Teros31
+Minimalistic test. Not working. Same as Arduino_SDI12_Teros31,
+only using SoftwareSerial lib instead of SDI12.
+
+### Arduino_bitwise_Teros31
+Naive (failed) approach to read bitwise the DDI signal on power up.

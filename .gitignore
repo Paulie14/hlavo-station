@@ -56,3 +56,6 @@ dkms.conf
 .pio
 
 .vscode
+
+data
+libs_BME280
