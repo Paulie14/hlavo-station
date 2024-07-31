@@ -94,7 +94,7 @@ void Logger::printf(MessageType type, const char* format, ...) {
     DateTime now = _rtc_clock->now();
     char head[50];
     snprintf(head, sizeof(head), "%s: [%s] ", now.timestamp().c_str(), messageTypeToString(type));
-    snprintf(_log_buf, sizeof(_log_buf), "%s", head);
+    snprintf(_log_buf, sizeof(_log_buf), "%s\n", head);
     size_t offset = strlen(_log_buf);
 
     vsnprintf(_log_buf + offset, sizeof(_log_buf)-offset, format, args);

@@ -286,7 +286,7 @@ void setup() {
   }
   DateTime dt = rtc_clock.now();
 
-// SD card setup
+  // SD card setup
   pinMode(SD_CS_PIN, OUTPUT);
   // SD Card Initialization
   if (SD.begin()){
