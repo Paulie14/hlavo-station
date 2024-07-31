@@ -322,7 +322,7 @@ void setup() {
   sht4.setPrecision(SHT4X_HIGH_PRECISION); // nejvyssi rozliseni
   sht4.setHeater(SHT4X_NO_HEATER); // bez vnitrniho ohrevu
 
-  // Light
+  // BH1750 - Light
   if(lightMeter.begin())
   {
     summary += " - BH1750 ready\n";
@@ -363,15 +363,7 @@ void setup() {
                               dt, pr2_dir);
   }
 
-  Serial.println("HLAVO station is running.");
-  Serial.println(F("Start loop " __FILE__ " " __DATE__ " " __TIME__));
-
-  Logger::print("HLAVO station is running");
-
-  Serial.println("=======================================================================");
-  Serial.println("\nSUMMARY:");
-  Serial.println(summary);
-  Serial.println("=======================================================================");
+  print_setup_summary(summary);
   delay(5000);
 
   // synchronize timers after setup
@@ -380,6 +372,16 @@ void setup() {
   timer_L4.reset(false);
 }
 
+void print_setup_summary(String summary)
+{
+  summary = "\nSETUP SUMMARY:\n" + summary;
+  summary = "\n=======================================================================\n" + summary + "\n";
+  summary += F("INO file: " __FILE__ " " __DATE__ " " __TIME__ "\n\n");
+  summary += "=======================================================================";
+
+  Logger::print(summary);
+  Logger::print("HLAVO station is running");
+}
 
 /*********************************************** LOOP ***********************************************/ 
 void loop() {

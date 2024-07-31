@@ -1,10 +1,11 @@
 
 /*********************************************** COMMON ***********************************************/
 #include <Every.h>
-
+#include <Logger.h>
 
 #define PIN_ON 47 // napajeni !!!
 
+const char* setup_interrupt = "SETUP INTERRUPTED";
 
 /************************************************ RUN ************************************************/
 // Switch between testing/setup and long term run.
@@ -37,13 +38,16 @@
 // SD card pin
 #define SD_CS_PIN 10
 
+/************************************************* I2C *************************************************/
+#include <Wire.h>
+#define I2C_SDA_PIN 42 // data pin
+#define I2C_SCL_PIN 2  // clock pin
+
 /************************************************* RTC *************************************************/
 // definice sbernice i2C pro RTC (real time clock)
 // I2C address 0x68
-#define rtc_SDA_PIN 42 // data pin
-#define rtc_SCL_PIN 2  // clock pin
 #include "clock.h"
-Clock rtc_clock(rtc_SDA_PIN, rtc_SCL_PIN);
+Clock rtc_clock;
 
 
 /******************************************* TEMP. AND HUM. *******************************************/
@@ -171,7 +175,7 @@ void collect_and_write_PR2()
     {
       // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
       char msg[400];
-      Serial.printf("PR2[a%d]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg));
+      Serial.printf("PR2[a%d]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg, sizeof(msg)));
     }
 
     Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
@@ -195,52 +199,83 @@ void setup() {
   {
       ; // cekani na Serial port
   }
+  String summary = "";
 
   Serial.println("Starting HLAVO station setup.");
 
-  // I2C
+  // necessary for I2C
   // for version over 3.5 need to turn uSUP ON
   Serial.print("set power pin: "); Serial.println(PIN_ON);
   pinMode(PIN_ON, OUTPUT);      // Set EN pin for uSUP stabilisator as output
   digitalWrite(PIN_ON, HIGH);   // Turn on the uSUP power
-  delay(1000);
+  summary += " - POWER PIN " +  String(PIN_ON) + " on\n";
+
+
+  // I2C setup
+  if(Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN))
+  {
+    Serial.println("TwoWire (I2C) is ready to use.");
+    summary += " - I2C [SDA " + String(I2C_SDA_PIN) + " SCL " + String(I2C_SCL_PIN) + "] ready\n";
+  }
+  else
+  {
+    Serial.println("TwoWire (I2C) initialization failed.");
+    Serial.println(setup_interrupt);
+    while(1){delay(1000);}
+  }
 
   // clock setup
-  rtc_clock.begin();
+  if(rtc_clock.begin())
+  {
+    Serial.println("RTC is ready to use.");
+    summary += " - RTC ready\n";
+  }
+  else
+  {
+    Serial.println("RTC initialization failed.");
+    Serial.println(setup_interrupt);
+    while(1){delay(1000);}
+  }
   DateTime dt = rtc_clock.now();
 
-  // // SD card setup
-  // pinMode(SD_CS_PIN, OUTPUT);
-  // // SD Card Initialization
-  // if (SD.begin()){
-  //     Serial.println("SD card is ready to use.");
-  // }
-  // else{
-  //     Serial.println("SD card initialization failed");
-  //     return;
-  // }
-  // Logger::setup_log(rtc_clock, "logs");
-  // Serial.println("Log set up.");
-  // Logger::print("Log set up.");
+// SD card setup
+  pinMode(SD_CS_PIN, OUTPUT);
+  // SD Card Initialization
+  if (SD.begin()){
+      Serial.println("SD card is ready to use.");
+      summary += " - SD card [pin " + String(SD_CS_PIN) + "] ready \n";
+  }
+  else{
+      Serial.println("SD card initialization failed.");
+      Serial.println(setup_interrupt);
+      while(1){delay(1000);}
+  }
+  Logger::setup_log(rtc_clock, "logs");
+  Serial.println("Log set up.");
+  Logger::print("Log set up.");
 
-
-  // Light
-  if(!lightMeter.begin())
+  // BH1750 - Light
+  if(lightMeter.begin())
   {
-    Serial.println("BH1750 (light) not found.");
+    summary += " - BH1750 ready\n";
+  }
+  else
+  {
+    summary += " - BH1750 FAILED\n";
+    Logger::print("BH1750 (light) not found.", Logger::WARN);
   }
 
-  delay(1000);
-  // temperature, pressure, humidity
-  Wire.begin();
-  delay(1000);
+  // BME280 - temperature, pressure, humidity
   tempSensor.setI2CAddress(tempSensor_I2C); // set I2C address, default 0x77
-  if(tempSensor.beginI2C() == false)
+  if(tempSensor.beginI2C())
   {
-    Serial.println("The sensor did not respond. Please check wiring.");
-    // while(1); //Freeze
+    summary += " - BME280 ready\n";
   }
-  delay(1000);
+  else
+  {
+    summary += " - BME280 FAILED\n";
+    Logger::print("BME280 not found.", Logger::WARN);
+  }
 
 
   // tempSensor.setFilter(0); //0 to 4 is valid. Filter coefficient. See 3.4.4
@@ -279,17 +314,24 @@ void setup() {
   //                             dt, pr2_dir);
   // }
 
-  Serial.println("HLAVO station is running.");
-  Serial.println(F("Start loop " __FILE__ " " __DATE__ " " __TIME__));
-
-  // Logger::print("HLAVO station is running");
-
-  Serial.println("=============================================================");
+  print_setup_summary(summary);
+  delay(5000);
 
   // synchronize timers after setup
   timer_L3.reset(true);
   timer_L1.reset(true);
   timer_L4.reset(false);
+}
+
+void print_setup_summary(String summary)
+{
+  summary = "\nSETUP SUMMARY:\n" + summary;
+  summary = "\n=======================================================================\n" + summary + "\n";
+  summary += F("INO file: " __FILE__ " " __DATE__ " " __TIME__ "\n\n");
+  summary += "=======================================================================";
+
+  Logger::print(summary);
+  Logger::print("HLAVO station is running");
 }
 
 
