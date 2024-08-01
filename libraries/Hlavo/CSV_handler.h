@@ -29,7 +29,7 @@ class CSVHandler
       else
         snprintf(temp_filename, sizeof(temp_filename), "/%s_%s", dt_buf, user_filename);
 
-      snprintf(user_filename, sizeof(user_filename), "%s", temp_filename);
+      snprintf(user_filename, max_filepath_length, "%s", temp_filename);
 
       Serial.printf("Creating file: %s\n", user_filename);
       FileInfo datafile(SD, user_filename);

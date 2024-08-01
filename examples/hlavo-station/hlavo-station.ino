@@ -74,7 +74,7 @@ BH1750 lightMeter;
 #define RAINGAUGE_PIN 6  // 10 kOhm, pullup
 #include "weather_station.h"
 #include "meteo_data.h"
-char data_meteo_filename[100] = "meteo.csv";
+char data_meteo_filename[max_filepath_length] = "meteo.csv";
 WeatherStation weather(WINDVANE_PIN, ANEMOMETER_PIN, RAINGAUGE_PIN, L2_WEATHER_PERIOD);
 
 // interuption
@@ -98,7 +98,7 @@ PR2Reader pr2_readers[2] = {        // readers enable reading all sensors withou
   PR2Reader(pr2, pr2_addresses[0]),
   PR2Reader(pr2, pr2_addresses[1])
 };
-char data_pr2_filenames[n_pr2_sensors][100] = {"pr2_a0.csv", "pr2_a1.csv"};
+char data_pr2_filenames[n_pr2_sensors][max_filepath_length] = {"pr2_a0.csv", "pr2_a1.csv"};
 
 uint8_t iss = 0;  // current sensor reading
 bool pr2_all_finished = false;
