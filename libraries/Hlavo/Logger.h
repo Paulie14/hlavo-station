@@ -22,6 +22,7 @@ class Logger
     static void cleanup_old_logs(int retentionDays = 7);
 
   private:
+    static bool initialized;
     // static const int _retentionDays = 7;
     static Clock* _rtc_clock;
     static char _logDirectory[hlavo::max_dirpath_length];
@@ -39,6 +40,7 @@ Clock* Logger::_rtc_clock = nullptr;
 char Logger::_logDirectory[hlavo::max_dirpath_length] = "/logs";
 FileInfo Logger::_logfile = FileInfo(SD, "/logs/hlavo_station.log");
 char Logger::_log_buf[log_msg_maxsize] = "";
+bool Logger::initialized = false;
 
 
 
@@ -54,6 +56,7 @@ void Logger::setup_log(Clock &clock, const char* dir_name)
   }
 
   createLogFileName();
+  initialized = true;
 }
 
 void Logger::clean_buf()
@@ -63,7 +66,17 @@ void Logger::clean_buf()
 }
 
 void Logger::print(const char* msg, MessageType type) {
+
     clean_buf();
+
+    if(!initialized)
+    {
+      // keep serial output
+      snprintf(_log_buf, sizeof(_log_buf), "[%s] %s\n", messageTypeToString(type), msg);
+      Serial.print(_log_buf);
+      return;
+    }
+
     DateTime now = _rtc_clock->now();
 
     snprintf(_log_buf, sizeof(_log_buf), "%s: [%s] %s\n", now.timestamp().c_str(), messageTypeToString(type), msg);
@@ -86,15 +99,29 @@ void Logger::printHex(const char* data, size_t length, MessageType type) {
 }
 
 void Logger::printf(MessageType type, const char* format, ...) {
+
     clean_buf();
     va_list args;
     va_start(args, format);
+
+    if(!initialized)
+    {
+      char head[50];
+      snprintf(head, sizeof(head), "[%s] ", messageTypeToString(type));
+      snprintf(_log_buf, sizeof(_log_buf), "%s", head);
+      size_t offset = strlen(_log_buf);
+      vsnprintf(_log_buf + offset, sizeof(_log_buf)-offset, format, args);
+
+      va_end(args);
+      Serial.println(_log_buf);
+      return;
+    }
 
     // print start
     DateTime now = _rtc_clock->now();
     char head[50];
     snprintf(head, sizeof(head), "%s: [%s] ", now.timestamp().c_str(), messageTypeToString(type));
-    snprintf(_log_buf, sizeof(_log_buf), "%s\n", head);
+    snprintf(_log_buf, sizeof(_log_buf), "%s", head);
     size_t offset = strlen(_log_buf);
 
     vsnprintf(_log_buf + offset, sizeof(_log_buf)-offset, format, args);

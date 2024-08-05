@@ -157,7 +157,7 @@ char* PR2Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
 
   _SDI12.sendCommand(command); // Send the SDI-12 command
   delay(50);                   // Wait for response to be ready
-  Logger::printf(Logger::INFO, "Command: '%s'", command);
+  Logger::printf(Logger::INFO, "Command: '%s'\n", command);
 
   u_int8_t counter = 0;
   //Read the response from the sensor
