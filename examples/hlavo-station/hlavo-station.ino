@@ -345,7 +345,7 @@ void setup() {
 
   delay(1000);  // allow things to settle
   uint8_t nbytes = 0;
-  pr2.requestAndReadData("?I!", &nbytes);  // Command to get sensor info
+  Logger::print(pr2.requestAndReadData("?I!", &nbytes));  // Command to get sensor info
 
   // while(1){delay(100);}
 
