@@ -95,7 +95,7 @@ void setup() {
   }
   DateTime dt = rtc_clock.now();
 
-// SD card setup
+  // SD card setup
   pinMode(SD_CS_PIN, OUTPUT);
   // SD Card Initialization
   if (SD.begin()){
@@ -135,7 +135,9 @@ void setup() {
   }
   
   print_setup_summary(summary);
+  // scan_I2C();
   delay(5000);
+  // while(1){delay(1000);}
 
   // synchronize timers after setup
   timer_L1.reset(true);
