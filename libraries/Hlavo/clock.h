@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Adafruit_Sensor.h"
 #include <RTClib.h>
 #include <ESP32Time.h>
 
