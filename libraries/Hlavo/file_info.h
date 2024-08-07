@@ -12,6 +12,7 @@ class FileInfo
         virtual ~FileInfo(void)
             {}
 
+        char* getPath();
         bool exists();
         void write(const char * message);
         void append(const char * message);
@@ -31,6 +32,10 @@ FileInfo::FileInfo(fs::FS &fs, const char * path)
     snprintf(_path, sizeof(_path),"%s", path);
 }
 
+char* FileInfo::getPath()
+{
+  return _path;
+}
 
 bool FileInfo::exists(){
   return _fs->exists(_path);

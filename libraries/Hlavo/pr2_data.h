@@ -85,7 +85,7 @@ PR2Data::PR2Data()
   }
 }
 
-// Function to convert MeteoData struct to CSV string with a custom delimiter
+// Function to convert PR2Data struct to CSV string with a custom delimiter
 char* PR2Data::dataToCsvLine(char* csvLine, size_t size) const {
 
   const char * dt = datetime.timestamp().c_str();
@@ -112,7 +112,7 @@ char* PR2Data::dataToCsvLine(char* csvLine, size_t size) const {
   return csvLine;
 }
 
-// Print MeteoData
+// Print PR2Data
 char* PR2Data::print(char* msg_buf, size_t size) const {
 
   const char * dt = datetime.timestamp().c_str();
