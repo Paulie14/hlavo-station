@@ -2,6 +2,7 @@
 /*********************************************** COMMON ***********************************************/
 #include <Every.h>
 #include <Logger.h>
+#include <math.h>
 
 #define PIN_ON 47 // napajeni !!!
 
@@ -14,22 +15,22 @@ const char* setup_interrupt = "SETUP INTERRUPTED";
 #ifdef TEST
     /** TIMERS */
     // times in milliseconds, L*... timing level
-    Every timer_L1(2000);      // fine timer - humidity, temperature, meteo, ...
-    // L2 - hardware timer with L2_WEATHER_PERIOD in seconds
-    #define L2_WEATHER_PERIOD 10
-    Every timer_L3(60*1000); // coarse timer - PR2 - 40 s
-    Every timer_L4(10*60*1000);  // watchdog timer - 10 min
+    const uint8_t timer_L1_period = 3;      // [s] read water height period
+    const uint8_t timer_L2_period = 15;     // [s] date reading timer - PR2
+    const uint8_t timer_L4_period = 10*60;  // [s] watchdog timer - 10 min
     #define VERBOSE 1
 #else
     /** TIMERS */
     // times in milliseconds, L*... timing level
-    Every timer_L1(1000);         // fine timer - humidity, temperature, ...
-    // L2 - hardware timer with L2_WEATHER_PERIOD in seconds
-    #define L2_WEATHER_PERIOD 60
-    Every timer_L3(900*1000);     // coarse timer - PR2 - 15 min
-    Every timer_L4(24*3600*1000); // watchdog timer - 24 h
+    const uint8_t timer_L1_period = 30;       // [s] read water height period
+    const uint8_t timer_L2_period = 5*60;     // [s] date reading timer - PR2
+    const uint8_t timer_L4_period = 24*3600;  // [s] watchdog timer - 24 h
     #define VERBOSE 1
 #endif
+
+Every timer_L1(timer_L1_period*1000);     // read water height timer
+Every timer_L2(timer_L2_period*1000);     // date reading timer - PR2
+Every timer_L4(timer_L4_period*60*1000);  // watchdog timer
 
 
 /*********************************************** SD CARD ***********************************************/
@@ -48,6 +49,113 @@ const char* setup_interrupt = "SETUP INTERRUPTED";
 // I2C address 0x68
 #include "clock.h"
 Clock rtc_clock;
+
+/************************************************ FLOW *************************************************/
+#include "column_flow_data.h"
+#define PUMP_OUT_PIN 21
+
+bool pump_out_finished = true;
+
+Timer timer_outflow(15*1000, false);    // time for pumping water out
+const float H_limit = 20;               // [cm] limit water height to release
+const uint8_t n_H_avg = 5;              // number of flow samples to average
+
+float H_window[n_H_avg];    // collected water height
+uint8_t n_H_collected = 0;    // collected water height
+uint8_t n_H_collected_start = 0;    // collected water height
+
+float previous_height = 0;
+
+char data_flow_filename[max_filepath_length] = "column_flow.csv";
+
+
+/************************************************ RAIN *************************************************/
+#define PUMP_IN_PIN 20
+bool pump_in_finished = true;
+Timer timer_rain(1000, false);    // timer for rain
+uint8_t current_rain_idx = 0;
+FileInfo current_rain_file(SD,"/current_rain.txt");
+
+class RainRegime{
+  public:
+    static const float pump_rate;       // [l/min]
+    static const float column_radius;   // [m]
+    static const float column_cross;    // [m2]
+
+    float rate;   // [mm/h]
+    float length; // [h]
+    float period; // [h]
+
+    uint8_t trigger_length;
+    uint8_t trigger_period;
+
+    DateTime last_rain;
+
+    RainRegime(float rate, float length, float period)
+    : rate(rate), length(length), period(period)
+    {
+    }
+
+    void compute_trigger()
+    {
+      float pump_rate_m = pump_rate*60;  // [dm3/h]
+      float inflow_rate = rate/100 * column_cross*100; // [dm3/h]
+      float ratio = inflow_rate/pump_rate_m;
+
+      Logger::printf(Logger::INFO, "Ratio: %g\n", ratio);
+      float Tmin = 1.0;
+      float Tmax = 3600.0*length/10.0;
+
+      trigger_period = std::round((Tmin+Tmax)/2);
+      trigger_length = std::round(trigger_period * ratio);
+
+      Logger::printf(Logger::INFO, "Pump lenght: %d  Pump period: %d\n", trigger_length, trigger_period);
+    }
+};
+
+const float RainRegime::pump_rate = 1.5;            // [l/min]
+const float RainRegime::column_radius = 0.2;        // [m]
+const float RainRegime::column_cross = PI * column_radius*column_radius;  // [m2]
+
+RainRegime rain_regimes[2] = {
+  RainRegime(0.2, 2, 24), // small daily rain
+  RainRegime(2, 0.5, 72)  // downpour every 3 days
+};
+
+void saveCurrentRain() {
+  char text[100];
+  DateTime dt = rain_regimes[current_rain_idx].last_rain;
+  snprintf(text, sizeof(text), "%s\n%d", dt.timestamp().c_str(), current_rain_idx);
+  current_rain_file.write(text);
+}
+
+void loadCurrentRain() {
+  File file = SD.open(current_rain_file.getPath());
+  if(!file){
+      Serial.println("Failed to open file for reading.");
+      current_rain_idx = 0;
+      rain_regimes[current_rain_idx].last_rain = DateTime((uint32_t)0);
+      return;
+  }
+
+  // Serial.print("Read from file: ");
+  if(file.available()){
+      String dt_string = file.readStringUntil('\n');
+      DateTime dt(dt_string.c_str());
+      uint8_t idx = file.readStringUntil('\n').toInt();
+      
+      current_rain_idx = idx;
+      if(idx >= sizeof(rain_regimes))
+      {
+        Logger::printf(Logger::ERROR, "Invalid rain regime index: %d\n", idx);
+        current_rain_idx = 0;
+        rain_regimes[current_rain_idx].last_rain = dt;
+      }
+      else
+        rain_regimes[current_rain_idx].last_rain = dt;
+  }
+  file.close();
+}
 
 
 /******************************************* TEMP. AND HUM. *******************************************/
@@ -80,7 +188,7 @@ const uint8_t pr2_addresses[n_pr2_sensors] = {3};  // sensor addresses on SDI-12
 PR2Reader pr2_readers[1] = {        // readers enable reading all sensors without blocking loop
   PR2Reader(pr2, pr2_addresses[0])
 };
-char data_pr2_filenames[n_pr2_sensors][100] = {"pr2_a3.csv"};
+char data_pr2_filenames[n_pr2_sensors][max_filepath_length] = {"pr2_a3.csv"};
 
 uint8_t iss = 0;  // current sensor reading
 bool pr2_all_finished = false;
@@ -88,12 +196,61 @@ bool pr2_all_finished = false;
 Timer timer_PR2_power(2000, false);
 
 /****************************************** DATA COLLECTION ******************************************/
-// L1 timer data buffer
-// float fineDataBuffer[NUM_FINE_VALUES][FINE_DATA_BUFSIZE];
-int num_fine_data_collected = 0;
 
-// collect meteo data at fine interval into a fine buffer of floats
-void fine_data_collect()
+
+void read_water_height()
+{
+  float height = 0.123; // TODO: read height from ultrasound
+  H_window[n_H_collected] = height;
+  n_H_collected++;
+  if(n_H_collected == n_H_avg)
+    n_H_collected = 0;
+
+  // check height limit, possibly run pump out
+  if(height >= H_limit)
+  {
+    timer_outflow.reset();
+    pump_out_finished = false;
+    digitalWrite(PUMP_OUT_PIN, HIGH);
+    // reset window
+    n_H_collected = 0;
+    n_H_collected_start = 0;
+    previous_height = 0;
+  }
+
+  ColumnFlowData data;
+  data.pump_in = !pump_in_finished;   // is pump running?
+  data.pump_out = !pump_out_finished; // is pump running?
+
+  if(n_H_collected_start < n_H_avg)
+  {
+    n_H_collected_start++;
+    // safe NaN until window is filled
+    data.height = std::numeric_limits<float>::quiet_NaN();
+    data.flux = std::numeric_limits<float>::quiet_NaN();
+  }
+  else
+  {
+    // compute average over H window
+    float H_avg = 0;
+    for (uint8_t i=0; i<n_H_avg; i++)
+    {
+      H_avg += H_window[i];
+    }
+    H_avg /= n_H_avg;
+    data.height = H_avg;
+    // flux is difference of heights
+    data.flux = (previous_height - H_avg) / timer_L1_period;
+    previous_height = H_avg;
+  }
+
+  // write data
+  CSVHandler::appendData(data_pr2_filenames[iss], &data);
+}
+
+// compute statistics over the fine meteo data
+// and save the meteo data into buffer of MeteoData
+void meteo_data_collect()
 {
   // sensors_event_t humidity, temp;
   // sht4.getEvent(&humidity, &temp);
@@ -116,13 +273,6 @@ void fine_data_collect()
   //     fineDataBuffer[0][i], fineDataBuffer[1][i]);
   // }
 
-  num_fine_data_collected++;
-}
-
-// compute statistics over the fine meteo data
-// and save the meteo data into buffer of MeteoData
-void meteo_data_collect()
-{
   DateTime dt = rtc_clock.now();
   // Serial.printf("    DateTime: %s. Buffering MeteoData.\n", dt.timestamp().c_str());
 
@@ -142,7 +292,7 @@ void meteo_data_collect()
   // num_meteo_data_collected++;
 
   // start over from the beginning of buffer
-  num_fine_data_collected = 0;
+  // num_fine_data_collected = 0;
 }
 
 // write the meteo data buffer to CSV
@@ -269,6 +419,12 @@ void setup() {
   tempSensor.setI2CAddress(tempSensor_I2C); // set I2C address, default 0x77
   if(tempSensor.beginI2C())
   {
+    tempSensor.setFilter(0); //0 to 4 is valid. Filter coefficient. See 3.4.4
+    tempSensor.setStandbyTime(0); //0 to 7 valid. Time between readings. See table 27.
+    tempSensor.setTempOverSample(1); //0 to 16 are valid. 0 disables temp sensing. See table 24.
+    tempSensor.setPressureOverSample(1); //0 to 16 are valid. 0 disables pressure sensing. See table 23.
+    tempSensor.setHumidityOverSample(1); //0 to 16 are valid. 0 disables humidity sensing. See table 19.
+    tempSensor.setMode(MODE_FORCED); //MODE_SLEEP, MODE_FORCED, MODE_NORMAL is valid.
     summary += " - BME280 ready\n";
   }
   else
@@ -277,48 +433,50 @@ void setup() {
     Logger::print("BME280 not found.", Logger::WARN);
   }
 
+  gpio_install_isr_service( ESP_INTR_FLAG_IRAM);
+  
+  // pumps pins, reset
+  pinMode(PUMP_OUT_PIN, OUTPUT);
+  digitalWrite(PR2_POWER_PIN, LOW);
+  pinMode(PUMP_IN_PIN, OUTPUT);
+  digitalWrite(PR2_POWER_PIN, LOW);
 
-  // tempSensor.setFilter(0); //0 to 4 is valid. Filter coefficient. See 3.4.4
-  // tempSensor.setStandbyTime(0); //0 to 7 valid. Time between readings. See table 27.
-  // tempSensor.setTempOverSample(1); //0 to 16 are valid. 0 disables temp sensing. See table 24.
-  // tempSensor.setPressureOverSample(1); //0 to 16 are valid. 0 disables pressure sensing. See table 23.
-  // tempSensor.setHumidityOverSample(1); //0 to 16 are valid. 0 disables humidity sensing. See table 19.
-  // tempSensor.setMode(MODE_FORCED); //MODE_SLEEP, MODE_FORCED, MODE_NORMAL is valid.
+  // PR2
+  pinMode(PR2_POWER_PIN, OUTPUT);
+  digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
+  timer_PR2_power.reset();
 
-  // // PR2
-  // gpio_install_isr_service( ESP_INTR_FLAG_IRAM);
-  // pinMode(PR2_POWER_PIN, OUTPUT);
-  // digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
-  // timer_PR2_power.reset();
+  delay(1000);
+  Serial.println("Opening SDI-12 for PR2...");
+  pr2.begin();
 
-  // delay(1000);
-  // Serial.println("Opening SDI-12 for PR2...");
-  // pr2.begin();
-
-  // delay(1000);  // allow things to settle
-  // uint8_t nbytes = 0;
-  // pr2.requestAndReadData("?I!", &nbytes);  // Command to get sensor info
+  delay(1000);  // allow things to settle
+  uint8_t nbytes = 0;
+  Serial.println(pr2.requestAndReadData("?I!", &nbytes));  // Command to get sensor info
 
 
-  // // Data files setup
-  // char csvLine[400];
-  // const char* meteo_dir="meteo";
-  // CSVHandler::createFile(data_meteo_filename,
-  //                           MeteoData::headerToCsvLine(csvLine),
-  //                           dt, meteo_dir);
-  // for(int i=0; i<n_pr2_sensors; i++){
-  //   char pr2_dir[20];
-  //   sprintf(pr2_dir, "pr2_sensor_%d", i);
-  //   CSVHandler::createFile(data_pr2_filenames[i],
-  //                             PR2Data::headerToCsvLine(csvLine),
-  //                             dt, pr2_dir);
-  // }
+  // Data files setup
+  char csvLine[400];
+  const char* flow_dir="flow";
+  CSVHandler::createFile(data_flow_filename,
+                         ColumnFlowData::headerToCsvLine(csvLine, max_csvline_length),
+                         dt, flow_dir);
+  for(int i=0; i<n_pr2_sensors; i++){
+    char pr2_dir[20];
+    sprintf(pr2_dir, "pr2_sensor_%d", i);
+    CSVHandler::createFile(data_pr2_filenames[i],
+                              PR2Data::headerToCsvLine(csvLine, max_csvline_length),
+                              dt, pr2_dir);
+  }
+
+  for(int i=0; i<2; i++)
+    rain_regimes[i].compute_trigger();
 
   print_setup_summary(summary);
   delay(5000);
 
   // synchronize timers after setup
-  timer_L3.reset(true);
+  timer_L2.reset(true);
   timer_L1.reset(true);
   timer_L4.reset(false);
 }
@@ -372,6 +530,14 @@ void scan_I2C()
 
 void measureBME280()
 {
+  // Serial.print("Humidity: ");
+  // Serial.print(tempSensor.readFloatHumidity(), 0);
+  // Serial.print(" Pressure: ");
+  // Serial.print(tempSensor.readFloatPressure(), 0);
+  // Serial.print(" Temp: ");
+  // Serial.print(tempSensor.readTempC(), 2);
+  // Serial.println();
+  
   BME280_SensorMeasurements measurements;
   tempSensor.readAllMeasurements(&measurements); // tempScale = 0 => Celsius
 
@@ -383,68 +549,58 @@ void measureBME280()
 /*********************************************** LOOP ***********************************************/ 
 void loop() {
   
-  // read values to buffer at fine time scale [fine Meteo Data]
+  // stop pump out
+  if(!pump_out_finished && timer_outflow.after())
+  {
+    digitalWrite(PUMP_OUT_PIN, LOW);  // turn off power for PR2
+    pump_out_finished = true;
+  }
+
+  // read water height
   if(timer_L1())
   {
     Serial.println("        -------------------------- L1 TICK --------------------------");
-    // fine_data_collect();
+    read_water_height();
+  }
 
+  // scan_I2C();
 
+  // read values from PR2 sensors when reading not finished yet
+  // and write to a file when last values received
+  if(!pr2_all_finished && timer_PR2_power.after())
+    collect_and_write_PR2();
+
+  // request reading from PR2 sensors
+  // and write Meteo Data buffer to a file
+  if(timer_L2())
+  {
+    Serial.println("-------------------------- L2 TICK --------------------------");
+    Logger::print("L2 TICK");
+    
     Serial.println(rtc_clock.now().timestamp().c_str());
 
     float light_lux = lightMeter.readLightLevel();
     Serial.print("Light: ");
     Serial.println(light_lux);
 
-    // Serial.print("Humidity: ");
-    // Serial.print(tempSensor.readFloatHumidity(), 0);
-    // Serial.print(" Pressure: ");
-    // Serial.print(tempSensor.readFloatPressure(), 0);
-    // Serial.print(" Temp: ");
-    // Serial.print(tempSensor.readTempC(), 2);
-    // Serial.println();
-
     measureBME280();
 
+
+    meteo_data_write();
+
+    pr2_all_finished = false;
+    // Serial.println("PR2 power on.");
+    digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
+    timer_PR2_power.reset();
+
+    #ifdef TEST
+      // TEST read data from CSV
+      // CSVHandler::printFile(data_meteo_filename);
+      // for(int i=0; i<n_pr2_sensors; i++){
+      //   CSVHandler::printFile(data_pr2_filenames[i]);
+      // }
+    #endif
   }
-
-  // scan_I2C();
-
-  // read values to buffer at fine time scale [averaged Meteo Data]
-	// if (weather.gotData()) {
-  //   Serial.println("    **************************************** L2 TICK ****************************************");
-
-  //   meteo_data_collect();
-  //   weather.resetGotData();
-  //   Serial.println("    **************************************** ******* ****************************************");
-  // }
-
-  // // read values from PR2 sensors when reading not finished yet
-  // // and write to a file when last values received
-  // if(!pr2_all_finished && timer_PR2_power.after())
-  //   collect_and_write_PR2();
-
-  // // request reading from PR2 sensors
-  // // and write Meteo Data buffer to a file
-  // if(timer_L3())
-  // {
-  //   Serial.println("-------------------------- L3 TICK --------------------------");
-  //   Logger::print("L3 TICK");
-  //   meteo_data_write();
-
-  //   pr2_all_finished = false;
-  //   // Serial.println("PR2 power on.");
-  //   digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
-  //   timer_PR2_power.reset();
-
-  //   #ifdef TEST
-  //     // TEST read data from CSV
-  //     // CSVHandler::printFile(data_meteo_filename);
-  //     // for(int i=0; i<n_pr2_sensors; i++){
-  //     //   CSVHandler::printFile(data_pr2_filenames[i]);
-  //     // }
-  //   #endif
-  // }
 
   // if(timer_L4())
   // {
