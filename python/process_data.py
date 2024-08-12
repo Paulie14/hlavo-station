@@ -59,7 +59,7 @@ def read_pr2_data(filter=False):
         # FILTERING
         if filter:
             for i in range(0, 6):
-                selected_column = 'SoilMoistMin_' + str(i)  # Change this to the column you want to filter
+                selected_column = 'SoilMoistMin_' + str(i)
                 # pr2_a0_data_filtered = pr2_a0_data_filtered[(pr2_a0_data_filtered[selected_column] != 0)]
                 # Filter rows where a selected column is between 0 and 1
                 data = data[(data[selected_column] > 0.01) & (data[selected_column] <= 1)]
@@ -74,10 +74,15 @@ def read_odyssey_data(filter=False):
     for a in range(0, 4):
         pattern = os.path.join(base_dir, 'data_odyssey', '*U0' + str(a+1) + '*.csv')
         data = read_data(pattern, dt_column='Date/Time', sep=',')
+        for i in range(5):
+            selected_column = f"sensor-{i+1} %"
+            new_col_name = f"odyssey_{i}"
+            data[selected_column] = data[selected_column]/100
+            data.rename(columns={selected_column: new_col_name}, inplace=True)
         # FILTERING
         if filter:
             for i in range(0, 6):
-                selected_column = 'sensor-' + str(i) + " %"  # Change this to the column you want to filter
+                selected_column = f"odyssey_{i}"
                 # pr2_a0_data_filtered = pr2_a0_data_filtered[(pr2_a0_data_filtered[selected_column] != 0)]
                 # Filter rows where a selected column is between 0 and 1
                 data = data[(data[selected_column] > 0.01) & (data[selected_column] <= 100)]
@@ -124,7 +129,9 @@ def plot_moisture_rain(ax, df, title, start_date=None, end_date=None):
         # ax.plot(filtered_df.index, filtered_df[column], label=column,
         #         marker='o', linestyle='-', markersize=2)
         dat = filtered_df[(filtered_df[column] > 0.01) & (filtered_df[column] < 1)]
-        ax.plot(dat.index, dat[column], label=column,
+        window_size = 5  # You can adjust the window size
+        smoothed_dat = dat.rolling(window=window_size).max()
+        ax.plot(smoothed_dat.index, smoothed_dat[column], label=column,
                 marker='o', linestyle='-', markersize=2)
 
     # Add vertical lines at the start of each day
@@ -146,6 +153,56 @@ def plot_moisture_rain(ax, df, title, start_date=None, end_date=None):
     ax2.legend(loc='center right')
 
 
+def plot_moisture_rain_comparison(ax, df, title, start_date=None, end_date=None):
+    # PR2
+    cl_name = 'SoilMoistMin'
+    depths = [0,2]
+    columns = [f"{cl_name}_{i}" for i in depths]
+
+    # Select data within the datetime interval
+    if start_date is not None and end_date is not None:
+        interval_df = df.loc[start_date:end_date]
+    elif start_date is not None:
+        interval_df = df.loc[start_date:]
+    elif end_date is not None:
+        interval_df = df.loc[:end_date]
+    else:
+        interval_df = df
+    filtered_df = interval_df.dropna(subset=columns)
+
+    for column in columns:
+        # ax.plot(filtered_df.index, filtered_df[column], label=column,
+        #         marker='o', linestyle='-', markersize=2)
+        dat = filtered_df[(filtered_df[column] > 0.01) & (filtered_df[column] < 1)]
+        window_size = 5  # You can adjust the window size
+        smoothed_dat = dat.rolling(window=window_size).max()
+        ax.plot(smoothed_dat.index, smoothed_dat[column], label=column,
+                marker='o', linestyle='-', markersize=2)
+
+    # Odyssey
+    columns = [f"odyssey_{i}" for i in depths]
+    for column in columns:
+        ax.plot(interval_df.index, interval_df[column], label=column, marker='o', linestyle='-', markersize=2)
+
+    # Add vertical lines at the start of each day
+    start_of_days = interval_df.resample('D').mean().index
+    for day in start_of_days:
+        ax.axvline(day, color='grey', linestyle='--', linewidth=0.5)
+
+    ax.set_xlabel('DateTime')
+    ax.set_ylabel('Values')
+    ax.set_title(title)
+    ax.legend()
+
+    cl_name = 'RainGauge'
+    rain_df = interval_df[interval_df[cl_name]>0].dropna(subset=cl_name)
+    ax2 = ax.twinx()
+    ax2.plot(rain_df.index, rain_df[cl_name], 'r', label='Rain',
+             marker='o', linestyle='-', markersize=2)
+    ax2.set_ylabel('Rain [ml/min]')
+    ax2.legend(loc='upper right')
+
+
 meteo_pattern = os.path.join(base_dir, '**', 'meteo', '*.csv')
 # Set DateTime as the index
 meteo_data = read_data(meteo_pattern)
@@ -161,24 +218,39 @@ ax.set_title('Humidity, Temperature, RainGauge Over Time')
 fig.savefig('meteo_data.pdf', format='pdf')
 
 
+# PR2 - a0 - s Oddyssey U01 u meteo stanice
+# PR2 - a1 - s Oddyssey U04 pod stromy
 odyssey_data = read_odyssey_data(filter=False)
-fig, ax = plt.subplots(figsize=(10, 6))
-plot_columns(ax, odyssey_data[0], ['sensor-1 %', 'sensor-2 %', 'sensor-3 %', 'sensor-4 %', 'sensor-5 %'])
-ax.set_title('Odyssey - Soil Moisture Mineral')
-fig.savefig('odyssey_data.pdf', format='pdf')
-plt.show()
+odyssey_names = [f"U0{i+1}" for i in range(4)]
+for i in [0,3]:
+    fig, ax = plt.subplots(figsize=(10, 6))
+    plot_columns(ax, odyssey_data[i], columns=[f"odyssey_{i}" for i in range(5)])
+    ax.set_title(f"Odyssey{odyssey_names[i]} - Soil Moisture Mineral")
+    fig.savefig(f"odyssey_data_{odyssey_names[i]}.pdf", format='pdf')
 
 pr2_data = read_pr2_data(filter=False)
+pr2_names = [f"a{i}" for i in range(2)]
+merging_dates = {'start_date': '2024-07-05', 'end_date': '2024-07-15'}
 
 # Merge the meteo and pr2 dataframes on DateTime using outer join
-all_data = pd.merge(meteo_data, pr2_data[0], how='outer', left_index=True, right_index=True, sort=True)
-
+pr2_data_merged_a0 = pd.merge(meteo_data, pr2_data[0], how='outer', left_index=True, right_index=True, sort=True)
 fig, ax = plt.subplots(figsize=(10, 6))
 # plot_columns(ax, pr2_a0_data_filtered, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
 # plot_columns(ax, all_data, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
-plot_moisture_rain(ax, all_data, "Rain vs Soil Moisture", start_date='2024-07-05', end_date='2024-07-15')
+plot_moisture_rain(ax, pr2_data_merged_a0, "Rain vs Soil Moisture", **merging_dates)
 ax.set_title('Soil Moisture Mineral')
-fig.savefig('pr2_data.pdf', format='pdf')
+fig.savefig('pr2_data_a0.pdf', format='pdf')
+# plt.show()
+
+# Merge the meteo and pr2 dataframes on DateTime using outer join
+pr2_data_merged_a1 = pd.merge(meteo_data, pr2_data[1], how='outer', left_index=True, right_index=True, sort=True)
+fig, ax = plt.subplots(figsize=(10, 6))
+# plot_columns(ax, pr2_a0_data_filtered, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
+# plot_columns(ax, all_data, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
+plot_moisture_rain(ax, pr2_data_merged_a1, "Rain vs Soil Moisture", **merging_dates)
+# plot_moisture_rain(ax, pr2_data_merged_a1, "Rain vs Soil Moisture")
+ax.set_title('Soil Moisture Mineral')
+fig.savefig('pr2_data_a1.pdf', format='pdf')
 # plt.show()
 
 # fig, ax = plt.subplots(figsize=(10, 6))
@@ -189,3 +261,21 @@ fig.savefig('pr2_data.pdf', format='pdf')
 # # plot_moisture_rain(ax, all_data, "Rain vs Soil Moisture", start_date='2024-07-05', end_date='2024-07-15')
 # # fig.savefig('pr2_data.pdf', format='pdf')
 # plt.show()
+
+
+# PR2 - a0 - s Oddyssey U01 u meteo stanice
+# PR2 - a1 - s Oddyssey U04 pod stromy
+# Merge PR2 and Odyssey dataframes on DateTime using outer join
+U01_data_merged = pd.merge(pr2_data_merged_a0, odyssey_data[0], how='outer', left_index=True, right_index=True, sort=True)
+fig, ax = plt.subplots(figsize=(10, 6))
+plot_moisture_rain_comparison(ax, U01_data_merged, "Rain vs Soil Moisture", **merging_dates)
+ax.set_title('Soil Moisture Mineral')
+fig.savefig('U01_data_merged.pdf', format='pdf')
+
+U02_data_merged = pd.merge(pr2_data_merged_a1, odyssey_data[1], how='outer', left_index=True, right_index=True, sort=True)
+fig, ax = plt.subplots(figsize=(10, 6))
+plot_moisture_rain_comparison(ax, U02_data_merged, "Rain vs Soil Moisture", **merging_dates)
+ax.set_title('Soil Moisture Mineral')
+fig.savefig('U02_data_merged.pdf', format='pdf')
+
+
