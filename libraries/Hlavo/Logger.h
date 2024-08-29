@@ -1,7 +1,7 @@
 #pragma once
 
 #include <RTClib.h>
-#include "SD.h"
+#include <SD.h>
 #include "file_info.h"
 #include "clock.h"
 #include <stdarg.h>
@@ -38,7 +38,7 @@ class Logger
 // Static member initialization
 Clock* Logger::_rtc_clock = nullptr;
 char Logger::_logDirectory[hlavo::max_dirpath_length] = "/logs";
-FileInfo Logger::_logfile = FileInfo(SD, "/logs/hlavo_station.log");
+FileInfo Logger::_logfile = FileInfo("");
 char Logger::_log_buf[log_msg_maxsize] = "";
 bool Logger::initialized = false;
 
@@ -72,20 +72,20 @@ void Logger::print(const char* msg, MessageType type) {
     if(!initialized)
     {
       // keep serial output
-      snprintf(_log_buf, sizeof(_log_buf), "[%s] %s\n", messageTypeToString(type), msg);
+      snprintf(_log_buf, sizeof(_log_buf), "[%s] %s\n", messageTypeToString(type).c_str(), msg);
       Serial.print(_log_buf);
       return;
     }
 
     DateTime now = _rtc_clock->now();
 
-    snprintf(_log_buf, sizeof(_log_buf), "%s: [%s] %s\n", now.timestamp().c_str(), messageTypeToString(type), msg);
+    snprintf(_log_buf, sizeof(_log_buf), "%s: [%s] %s\n", now.timestamp().c_str(), messageTypeToString(type).c_str(), msg);
     Serial.print(_log_buf);
     _logfile.append(_log_buf);
 }
 
 void Logger::print(const String& msg, MessageType type) {
-    print(msg.c_str());
+    print(msg.c_str(), type);
 }
 
 void Logger::printHex(const char* data, size_t length, MessageType type) {
@@ -107,7 +107,7 @@ void Logger::printf(MessageType type, const char* format, ...) {
     if(!initialized)
     {
       char head[50];
-      snprintf(head, sizeof(head), "[%s] ", messageTypeToString(type));
+      snprintf(head, sizeof(head), "[%s] ", messageTypeToString(type).c_str());
       snprintf(_log_buf, sizeof(_log_buf), "%s", head);
       size_t offset = strlen(_log_buf);
       vsnprintf(_log_buf + offset, sizeof(_log_buf)-offset, format, args);
@@ -120,7 +120,7 @@ void Logger::printf(MessageType type, const char* format, ...) {
     // print start
     DateTime now = _rtc_clock->now();
     char head[50];
-    snprintf(head, sizeof(head), "%s: [%s] ", now.timestamp().c_str(), messageTypeToString(type));
+    snprintf(head, sizeof(head), "%s: [%s] ", now.timestamp().c_str(), messageTypeToString(type).c_str());
     snprintf(_log_buf, sizeof(_log_buf), "%s", head);
     size_t offset = strlen(_log_buf);
 
@@ -169,9 +169,9 @@ void Logger::cleanup_old_logs(int retentionDays) {
 void Logger::createLogFileName() {
     DateTime now = _rtc_clock->now();
     char buf[hlavo::max_filepath_length];
-    snprintf(buf, sizeof(buf), "%s/%04d%02d%02d_hlavo_station.log", _logDirectory, now.year(), now.month(), now.day());
+    snprintf(buf, sizeof(buf), "%s/%04d%02d%02d_hlavo.log", _logDirectory, now.year(), now.month(), now.day());
     Serial.println(buf);
-    _logfile = FileInfo(SD, buf);
+    _logfile = FileInfo(buf);
 }
 
 String Logger::messageTypeToString(MessageType type) {

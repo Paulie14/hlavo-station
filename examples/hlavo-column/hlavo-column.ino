@@ -15,22 +15,22 @@ const char* setup_interrupt = "SETUP INTERRUPTED";
 #ifdef TEST
     /** TIMERS */
     // times in milliseconds, L*... timing level
-    const uint8_t timer_L1_period = 3;      // [s] read water height period
-    const uint8_t timer_L2_period = 15;     // [s] date reading timer - PR2
-    const uint8_t timer_L4_period = 10*60;  // [s] watchdog timer - 10 min
+    const int timer_L1_period = 3;      // [s] read water height period
+    const int timer_L2_period = 15;     // [s] date reading timer - PR2
+    const int timer_L4_period = 10*60;  // [s] watchdog timer - 10 min
     #define VERBOSE 1
 #else
     /** TIMERS */
     // times in milliseconds, L*... timing level
-    const uint8_t timer_L1_period = 30;       // [s] read water height period
-    const uint8_t timer_L2_period = 5*60;     // [s] date reading timer - PR2
-    const uint8_t timer_L4_period = 24*3600;  // [s] watchdog timer - 24 h
+    const int timer_L1_period = 30;       // [s] read water height period
+    const int timer_L2_period = 5*60;     // [s] date reading timer - PR2
+    const int timer_L4_period = 24*3600;  // [s] watchdog timer - 24 h
     #define VERBOSE 1
 #endif
 
 Every timer_L1(timer_L1_period*1000);     // read water height timer
 Every timer_L2(timer_L2_period*1000);     // date reading timer - PR2
-Every timer_L4(timer_L4_period*60*1000);  // watchdog timer
+Every timer_L4(timer_L4_period*1000);     // watchdog timer
 
 
 /*********************************************** SD CARD ***********************************************/
@@ -74,7 +74,7 @@ char data_flow_filename[max_filepath_length] = "column_flow.csv";
 bool pump_in_finished = true;
 Timer timer_rain(1000, false);    // timer for rain
 uint8_t current_rain_idx = 0;
-FileInfo current_rain_file(SD,"/current_rain.txt");
+FileInfo current_rain_file("/current_rain.txt");
 
 class RainRegime{
   public:

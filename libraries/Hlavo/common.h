@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdlib.h>
-#include <string.h>
+#include <stdarg.h>
 
 
 namespace hlavo{
@@ -17,5 +17,18 @@ namespace hlavo{
 
     // keep the ending char '\0' at the end, throw away overflow
     (void)strncat(strdest, str, size_dest - strlen(strdest) - 1);
+  }
+
+  // Auxiliary Serial.sprintf function which is not available on Arduino
+  static void SerialPrintf(uint16_t size, const char* format, ...)
+  {
+    char buf[size];
+
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+
+    Serial.print(buf);
   }
 };

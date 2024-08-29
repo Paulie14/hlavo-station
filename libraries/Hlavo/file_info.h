@@ -1,14 +1,23 @@
 #ifndef FILE_INFO_H
 #define FILE_INFO_H
 
-#include "FS.h"
+// #include "FS.h"  // use directly SD instead of arbitrary FS (due to Arduino SD.h lib)
+#include <SD.h>
 #include "common.h"
 using namespace hlavo;
+
+#if defined(ESP32) || defined(ESP8266)
+  // #define FILE_WRITE (O_RDONLY | O_WRONLY | O_CREAT)
+  // #define FILE_APPEND (O_RDONLY | O_WRONLY | O_CREAT | O_APPEND)
+#else // define the same for Arduino
+  #define FILE_WRITE (O_READ | O_WRITE | O_CREAT)
+  #define FILE_APPEND (O_READ | O_WRITE | O_CREAT | O_APPEND)
+#endif
 
 class FileInfo
 {
     public:
-        FileInfo(fs::FS &fs, const char * path);
+        FileInfo(const char * path);
         virtual ~FileInfo(void)
             {}
 
@@ -17,18 +26,16 @@ class FileInfo
         void write(const char * message);
         void append(const char * message);
         void read();
-        void rename(const char * new_path);
+        // void rename(const char * new_path);  // not available in Arduino SD.h
         void remove();
         FileInfo copy(const char * new_path);
     
     private:
-        fs::FS *_fs;
         char _path[max_filepath_length];
 };
 
-FileInfo::FileInfo(fs::FS &fs, const char * path)
+FileInfo::FileInfo(const char * path)
 {
-    _fs = &fs;
     snprintf(_path, sizeof(_path),"%s", path);
 }
 
@@ -38,13 +45,13 @@ char* FileInfo::getPath()
 }
 
 bool FileInfo::exists(){
-  return _fs->exists(_path);
+  return SD.exists(_path);
 }
 
 void FileInfo::write(const char * message){
     // Serial.printf("Writing file: %s\n", _path);
 
-    File file = _fs->open(_path, FILE_WRITE);
+    File file = SD.open(_path, FILE_WRITE);
     if(!file){
         Serial.println("Failed to open file for writing");
         return;
@@ -60,7 +67,7 @@ void FileInfo::write(const char * message){
 void FileInfo::append(const char * message){
     //Serial.printf("Appending to file: %s\n", _path);
 
-    File file = _fs->open(_path, FILE_APPEND);
+    File file = SD.open(_path, FILE_APPEND);
     if(!file){
         Serial.println("Failed to open file for appending");
         return;
@@ -76,7 +83,7 @@ void FileInfo::append(const char * message){
 void FileInfo::read(){
     // Serial.printf("Reading file: %s\n", _path);
 
-    File file = _fs->open(_path);
+    File file = SD.open(_path);
     if(!file){
         Serial.println("Failed to open file for reading");
         return;
@@ -89,19 +96,19 @@ void FileInfo::read(){
     file.close();
 }
 
-void FileInfo::rename(const char * new_path){
-    Serial.printf("Renaming file %s to %s\n", _path, new_path);
-    if (_fs->rename(_path, new_path)) {
-        snprintf(_path, sizeof(_path),"%s", new_path);
-        // Serial.println("File renamed");
-    } else {
-        Serial.println("Rename failed");
-    }
-}
+// void FileInfo::rename(const char * new_path){
+//     hlavo::SerialPrintf(300, "Renaming file %s to %s\n", _path, new_path);
+//     if (SD.rename(_path, new_path)) {
+//         snprintf(_path, sizeof(_path),"%s", new_path);
+//         // Serial.println("File renamed");
+//     } else {
+//         Serial.println("Rename failed");
+//     }
+// }
 
 void FileInfo::remove(){
-    Serial.printf("Deleting file: %s\n", _path);
-    if(_fs->remove(_path)){
+    hlavo::SerialPrintf(300, "Deleting file: %s\n", _path);
+    if(SD.remove(_path)){
         // Serial.println("File deleted");
     } else {
         Serial.println("Delete failed");
@@ -110,21 +117,21 @@ void FileInfo::remove(){
 
 FileInfo FileInfo::copy(const char * new_path)
 {
-  Serial.printf("Copying file: %s to %s\n", _path, new_path);
+  hlavo::SerialPrintf(300,"Copying file: %s to %s\n", _path, new_path);
 
   // Open source file
-  File sourceFile = _fs->open(_path, "r");
+  File sourceFile = SD.open(_path, FILE_READ);
   if (!sourceFile) {
     Serial.println("Failed to open source file");
-    return FileInfo(*_fs, "");
+    return FileInfo("");
   }
 
   // Open destination file
-  File destinationFile = _fs->open(new_path, "w");
+  File destinationFile = SD.open(new_path, FILE_WRITE);
   if (!destinationFile) {
     Serial.println("Failed to open destination file");
     sourceFile.close(); // Close the source file before returning
-    return FileInfo(*_fs, "");
+    return FileInfo("");
   }
 
   // Copy contents from source file to destination file
@@ -136,7 +143,7 @@ FileInfo FileInfo::copy(const char * new_path)
   sourceFile.close();
   destinationFile.close();
   // Serial.println("Copying finished.");
-  return FileInfo(*_fs, new_path);
+  return FileInfo(new_path);
 }
 
 

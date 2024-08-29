@@ -1,16 +1,21 @@
 #pragma once
 
-#include "Adafruit_Sensor.h"
-#include <RTClib.h>
-#include <ESP32Time.h>
 
+#if defined(ESP32) || defined(ESP8266)
+  #include <ESP32Time.h>
+  #include "Adafruit_Sensor.h"
+#endif
+
+#include <RTClib.h>
+#include "common.h"
 
 class Clock {
   private:
     RTC_DS3231 rtc;
-    const char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
-
+#if defined(ESP32) || defined(ESP8266)
     ESP32Time internal_rtc;
+#endif
+
 
   public:
     // Constructor
@@ -19,7 +24,7 @@ class Clock {
 
     // Initialize the clock
     bool begin() {
-      Serial.println("Initializing RTC...");
+      Serial.println(F("Initializing RTC..."));
 
       if (!rtc.begin()) {
         return false;
@@ -27,7 +32,7 @@ class Clock {
       if (rtc.lostPower())
       {
         DateTime dt = DateTime(F(__DATE__), F(__TIME__));
-        Serial.printf("RTC lost power. Setting time: %s\n", dt.timestamp().c_str());
+        hlavo::SerialPrintf(100,"RTC lost power. Setting time: %s\n", dt.timestamp().c_str());
         // When time needs to be set on a new device, or after a power loss, the
         // following line sets the RTC to the date & time this sketch was compiled
         rtc.adjust(dt);//rtc.adjust(DateTime(2024, 3, 01, 10, 15, 0));
@@ -37,8 +42,11 @@ class Clock {
       }
       // rtc.adjust(DateTime(2024, 6, 17, 9, 53, 0));
 
-      //Update internal RTC
+#if defined(ESP32) || defined(ESP8266)
+      // Update internal RTC in ESP chip due to correct filesystem datetime
       internal_rtc.setTime(rtc.now().unixtime());
+#endif
+
       return true;
     }
 
