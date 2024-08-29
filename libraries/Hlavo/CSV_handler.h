@@ -31,8 +31,8 @@ class CSVHandler
 
       snprintf(user_filename, max_filepath_length, "%s", temp_filename);
 
-      Serial.printf("Creating file: %s\n", user_filename);
-      FileInfo datafile(SD, user_filename);
+      hlavo::SerialPrintf(200, "Creating file: %s\n", user_filename);
+      FileInfo datafile(user_filename);
       datafile.write(header);
     }
 
@@ -85,7 +85,7 @@ class CSVHandler
 
     static void printFile(char* filename)
     {
-      FileInfo datafile(SD, filename);
+      FileInfo datafile(filename);
       datafile.read();
     }
 };
