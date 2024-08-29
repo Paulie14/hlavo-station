@@ -58,4 +58,6 @@ dkms.conf
 .vscode
 
 data
+data_odyssey
 libs_BME280
+libraries_dep
