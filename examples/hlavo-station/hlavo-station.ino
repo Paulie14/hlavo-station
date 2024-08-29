@@ -345,7 +345,10 @@ void setup() {
 
   delay(1000);  // allow things to settle
   uint8_t nbytes = 0;
-  Logger::print(pr2.requestAndReadData("?I!", &nbytes));  // Command to get sensor info
+  for(int i=0; i<n_pr2_sensors; i++){
+    String cmd = String(pr2_addresses[i]) + "I!";
+    Logger::print(pr2.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+  }
 
   // while(1){delay(100);}
 
