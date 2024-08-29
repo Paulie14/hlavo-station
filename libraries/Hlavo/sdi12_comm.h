@@ -1,39 +1,44 @@
 #pragma once
 
+#include "common.h"
 #include <Every.h>
 #include <SDI12.h>
 #include "Logger.h"
+#include "stdlib.h"
+
+// Fix no strof for Arduino
+#define strtof(A, B) strtod(A, B)
 
 // Global timer for PR2 request-read delay.
-Timer pr2_delay_timer(2200, false);
+Timer sdi12_delay_timer(2200, false);
 
-/// @brief SDI12 wrapper class for PR2.
+/// @brief SDI12 wrapper class.
 /// Uses some key approaches from ESP32_SDI12, reads byte by byte to
 /// resolves invalid characters at beginning of messages.
-class PR2Comm
+class SDI12Comm
 {
   private:
     // static const uint16_t _measure_delay = 2200; // waiting between measure request and data request
     // static const uint8_t n_bytes_per_val = 7;
     static const uint8_t max_msg_length = 100;
+    // static const char* crlf;
 
     uint8_t _verbose = 0;
-    int8_t _dataPin;
     SDI12 _SDI12;
 
     uint8_t _n_expected;
     char _msg_buf[max_msg_length];
 
   public:
-    PR2Comm(int8_t dataPin, uint8_t verbose=0);
+    SDI12Comm(int8_t dataPin, uint8_t verbose=0);
 
     void begin();
-  
+
     // String requestAndReadData(String command, bool trim = false);
     // String measureConcurrent(String measure_command, uint8_t address);
 
     char* requestAndReadData(const char* command, uint8_t* n_bytes);
-    char* measureRequest(String measure_command, uint8_t address);
+    char* measureRequest(String measure_command, uint8_t address, bool *result);
     char* measureRead(uint8_t address, float* values, uint8_t* n_values);
     char* measureRequestAndRead(String measure_command,uint8_t address, float* values, uint8_t* n_values);
     void print_values(String field_name, float* values, uint8_t n_values);
@@ -44,15 +49,17 @@ class PR2Comm
     char* findFirstDigit(char* str, uint8_t n_bytes);
 };
 
+// const char * PR2Comm::crlf = "\r\n";
 
-PR2Comm::PR2Comm(int8_t dataPin, uint8_t verbose)
-  : _verbose(verbose), _dataPin(dataPin), _SDI12(dataPin)
+SDI12Comm::SDI12Comm(int8_t dataPin, uint8_t verbose)
+  : _verbose(verbose), _SDI12(dataPin)
 {
 }
 
-void PR2Comm::begin()
+void SDI12Comm::begin()
 {
-  Serial.printf("SDI12 datapin: %d\n", _SDI12.getDataPin());
+  // Serial.print("SDI12 datapin: ");
+  // Serial.println(_SDI12.getDataPin());
   // Serial.println(_verbose);
   _SDI12.begin();
 }
@@ -139,7 +146,7 @@ void PR2Comm::begin()
 //     //     position++;
 //     //     delay(20);
 //     // }
-//     // 30 2B 30 2E 39 39 34 35 2B 31 2E 30 30 34 35 2B 31 2E 30 32 32 39 2B 30 2E 39 38 34 38 2B 30 2E 39 38 35 36 2B 30 2E 39 38 34 38 D A 
+//     // 30 2B 30 2E 39 39 34 35 2B 31 2E 30 30 34 35 2B 31 2E 30 32 32 39 2B 30 2E 39 38 34 38 2B 30 2E 39 38 35 36 2B 30 2E 39 38 34 38 D A
 //     // 30 2B 30 2E 39 39 34 33 2B 31 2E 30 30 35 2B 31 2E 30 32 33 31 2B 30 2E 39 38 34 38 2B 30 2E 39 38 35 33 2B 30 2E 39 38 35 D A
 //     // 0+0.9945+1.0045+1.0229+0.9848+0.9856+0.9848
 //     // 0+0.9943+1.005+1.0231+0.9848+0.9853+0.985
@@ -150,16 +157,18 @@ void PR2Comm::begin()
 
 
 
-char* PR2Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
+char* SDI12Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
 
   for(int i=0; i<max_msg_length; i++)
     _msg_buf[i] = 0;
+  _SDI12.clearBuffer();
+  _SDI12.clearWriteError();
 
   _SDI12.sendCommand(command); // Send the SDI-12 command
   delay(50);                   // Wait for response to be ready
   Logger::printf(Logger::INFO, "Command: '%s'\n", command);
 
-  u_int8_t counter = 0;
+  uint8_t counter = 0;
   //Read the response from the sensor
   while (_SDI12.available()) { // Check if there is data available to read
     char c = _SDI12.read();    // Read a single character
@@ -178,12 +187,20 @@ char* PR2Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
     }
     delay(10);  // otherwise it would leave some chars to next message...
   }
-  if(_verbose > 1)
-    Serial.println("");
+  _SDI12.forceHold();
 
   *n_bytes = counter;
-  Logger::printHex(_msg_buf, counter);
-  
+
+  if(counter>0)
+  {
+    if(_verbose > 1)
+      Serial.println("");
+    Logger::printHex(_msg_buf, counter);
+  }
+  else{
+    Logger::printf(Logger::ERROR, "ERROR: sdi12 [%s] - no response!\n", command);
+  }
+
   if(_verbose > 0)
   {
     // if printf not available (Arduino)
@@ -197,29 +214,57 @@ char* PR2Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
 }
 
 
-char* PR2Comm::measureRequest(String measure_command, uint8_t address)
+char* SDI12Comm::measureRequest(String measure_command, uint8_t address, bool *result)
 {
   uint8_t n_bytes = 0;
   measure_command = String(address) + measure_command + "!";
   requestAndReadData(measure_command.c_str(), &n_bytes);  // Command to take a measurement
 
-  if(n_bytes <= 5)
+  if(n_bytes != 8)
   {
-    Logger::printf(Logger::ERROR, "ERROR: PR2_comm [%s] - no valid response received!\n", measure_command.c_str());
+    if(n_bytes>0)
+      Logger::printf(Logger::ERROR, "ERROR: sdi12[%s] - no valid response received!\n", measure_command.c_str());
+    *result = false;
     return nullptr;
   }
-  // for(int i=0; i<n_bytes; i++)
-  //   Serial.printf("%02X ",msg_buf[i]);
-  // Serial.println();
 
-  // last value is the number of measured values
-  _n_expected = _msg_buf[n_bytes-3] - '0'; // nbytes-1, message ends with 0D 0A
-  if(_verbose>0)
-    Serial.printf("_n_expected: %d\n", _n_expected);
+  // for(int i=0; i<n_bytes; i++)
+    // Serial.print(_msg_buf[i], HEX);
+    // Serial.printf("%02X ",_msg_buf[i]);
+  // Serial.println();
+  // char* msg_start = findFirstDigit(_msg_buf, n_bytes);
+  // uint8_t raddress = *msg_start - '0';//strtof(msg_start, &msg_ptr);
+
+  // is it a valid message?
+  bool res = true;
+  res = res && _msg_buf[n_bytes-1] == '\n';  // 0A
+  res = res && _msg_buf[n_bytes-2] == '\r';  // 0D
+  uint8_t raddress = _msg_buf[0] - '0';
+  res = res && raddress == address;           // returns the requested address
+  uint8_t delay_time = _msg_buf[3]-'0';       // delay time in seconds
+  res = res && (0 < delay_time) && (delay_time < 10);  // delay time between 1-9
+  uint8_t n_vals = _msg_buf[n_bytes-3]-'0';       // n data
+  res = res && (0 < delay_time) && (delay_time < 10);  // n data between 1-9
+
+  *result = res;
+
+  if(res)
+  {
+    sdi12_delay_timer.interval = delay_time*1000;
+    _n_expected = n_vals;
+    if(_verbose>0)
+      hlavo::SerialPrintf(30, "_n_expected: %d, delay: %ds\n", _n_expected, delay_time);
+  }
+  else
+  {
+    Logger::print("Invalid message received.", Logger::MessageType::ERROR);
+    _n_expected = 0;
+    return _msg_buf;
+  }
   return _msg_buf;
 }
 
-char* PR2Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
+char* SDI12Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
 {
   uint8_t n_bytes = 0;
   // for C commands
@@ -230,15 +275,29 @@ char* PR2Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
 
   if(n_bytes <= 5)
   {
-    Logger::printf(Logger::ERROR, "ERROR: PR2_comm [%s] - no valid response received!\n", data_command.c_str());
+    // Logger::printf(Logger::ERROR, "ERROR: PR2_comm [%s] - no valid response received!\n", data_command.c_str());
     *n_values = 0;
     return nullptr;
   }
 
   char* msg_start = findFirstDigit(_msg_buf, n_bytes);
-  if(_verbose>0)
-    Serial.printf("cleared msg: %s\n", msg_start);
-  
+  // if(_verbose>0)
+    // hlavo::SerialPrintf(120, "cleared msg: %s\n", msg_start);
+
+// is valid message?
+  bool res = true;
+  res = _msg_buf[n_bytes-1] == '\n';  // 0A
+  res = _msg_buf[n_bytes-2] == '\r';  // 0D
+  uint8_t raddress = *msg_start - '0';
+  res = raddress == address;
+
+  if(! res)
+  {
+    // Logger::print("Invalid message received.", Logger::MessageType::ERROR);
+    *n_values = 0;
+    return msg_start;
+  }
+
   uint8_t parsed_values = 0; // Number of values successfully parsed
   char* msg_ptr;
   // Extracts the device address and stores a ptr to the rest of the
@@ -266,35 +325,36 @@ char* PR2Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
   return msg_start;
 }
 
-char* PR2Comm::measureRequestAndRead(String measure_command,uint8_t address, float* values, uint8_t* n_values)
+char* SDI12Comm::measureRequestAndRead(String measure_command,uint8_t address, float* values, uint8_t* n_values)
 {
-  measureRequest(measure_command, address);
+  bool res = false;
+  measureRequest(measure_command, address, &res);
 
-  delay(pr2_delay_timer.interval);
+  delay(sdi12_delay_timer.interval);
 
   return measureRead(address, values, n_values);
 }
 
-void PR2Comm::print_values(String field_name, float* values, uint8_t n_values)
+void SDI12Comm::print_values(String field_name, float* values, uint8_t n_values)
 {
-  Serial.printf("%-25s", (field_name + ':').c_str());
+  // hlavo::SerialPrintf(100, "%-25s", (field_name + ':').c_str());
   for(int i=0; i<n_values; i++)
-    Serial.printf("%.4f  ", values[i]);
+    hlavo::SerialPrintf(10, "%.4f  ", values[i]);
   Serial.println();
 }
 
 
-void PR2Comm::print_response(String cmd, String response)
+void SDI12Comm::print_response(String cmd, String response)
 {
-  Serial.printf("command %s: %s\n", cmd.c_str(), response.c_str());
+  hlavo::SerialPrintf(20, "command %s: %s\n", cmd.c_str(), response.c_str());
 }
 
-void PR2Comm::print_response(String cmd, const char* response)
+void SDI12Comm::print_response(String cmd, const char* response)
 {
-  Serial.printf("command %s: %s\n", cmd.c_str(), response);
+  hlavo::SerialPrintf(150, "command %s: %s\n", cmd.c_str(), response);
 }
 
-char* PR2Comm::findFirstDigit(char* str, uint8_t n_bytes) {
+char* SDI12Comm::findFirstDigit(char* str, uint8_t n_bytes) {
   // Loop through each character until we hit the string's null terminator
   for(int i=0; i<n_bytes; i++) {
       // Check if the current character is a digit
@@ -302,7 +362,7 @@ char* PR2Comm::findFirstDigit(char* str, uint8_t n_bytes) {
           return str;  // Return the pointer to the current character
       }
       if(_verbose >0)
-        Serial.printf("skipping %X\n", *str);
+        hlavo::SerialPrintf(30,"skipping %X\n", *str);
       str++;  // Move to the next character
   }
   return nullptr;  // Return nullptr if no digit is found

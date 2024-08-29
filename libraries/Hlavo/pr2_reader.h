@@ -1,6 +1,6 @@
 # pragma once
 
-#include "pr2_comm.h"
+#include "sdi12_comm.h"
 #include "pr2_data.h"
 
 /// @brief Class that keeps track of requesting and receiving PR2 data from a single sensor.
@@ -9,7 +9,7 @@
 class PR2Reader{
   private:
     uint8_t _address;
-    PR2Comm _pr2_comm;
+    SDI12Comm _pr2_comm;
 
     static const uint8_t _n_fields = 3;
     const char* _list_of_commands[_n_fields] = {"C", "C1", "C9"};
@@ -23,32 +23,42 @@ class PR2Reader{
     PR2Data data;
     bool finished = false;
 
-    PR2Reader(PR2Comm &pr2_comm, uint8_t address);
-    void TryRequest();
+    PR2Reader(SDI12Comm &pr2_comm, uint8_t address);
+    bool TryRequest();
     void TryRead();
     void Reset();
 };
 
 
-PR2Reader::PR2Reader(PR2Comm &pr2_comm, uint8_t address)
+PR2Reader::PR2Reader(SDI12Comm &pr2_comm, uint8_t address)
   :_address(address), _pr2_comm(pr2_comm)
 {
   Reset();
 }
 
-void PR2Reader::TryRequest()
+bool PR2Reader::TryRequest()
 {
-  if(!pr2_delay_timer.running)
+  // Logger::printf(Logger::INFO, "PR2Reader::TryRequest %d %d", sdi12_delay_timer.interval, sdi12_delay_timer.running);
+  if( ! (sdi12_delay_timer.running))
   {
-    _pr2_comm.measureRequest(_list_of_commands[icmd], _address);
-    pr2_delay_timer.reset();
+    bool res = false;
+    _pr2_comm.measureRequest(_list_of_commands[icmd], _address, &res);
+    if(res)
+    {
+      sdi12_delay_timer.reset();
+      // Logger::printf(Logger::INFO, "PR2Reader::TryRequest TRUE %d %d", sdi12_delay_timer.interval, sdi12_delay_timer.running);
+    }
+    return res;
   }
+  return true;
 }
 
 void PR2Reader::TryRead()
 {
-  if(pr2_delay_timer())
+  // Logger::printf(Logger::INFO, "PR2Reader::TryRead %d %d", sdi12_delay_timer.interval, sdi12_delay_timer.running);
+  if(sdi12_delay_timer())
   {
+    // Logger::print("PR2Reader::TryRead timer finished");
     char* res = _pr2_comm.measureRead(_address, rec_values, &rec_n_values);
     // _pr2_comm.print_values("field", rec_values, rec_n_values);
     if(res != nullptr)
