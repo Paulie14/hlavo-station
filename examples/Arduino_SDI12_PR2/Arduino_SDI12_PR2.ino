@@ -2,26 +2,12 @@
 #include <Arduino.h>
 #include <SDI12.h>
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define SERIAL_BAUD 115200 /*!< The baud rate for the output serial port */
 #define DATA_PIN 8         /*!< The pin of the SDI-12 data bus */
 #define POWER_PIN 22       /*!< The sensor power pin (or -1 if not switching power) */
 
-
-// // UART for connection with ESP32-S3
-// #define RX1 16  // Example custom pin for UART1 RX
-// #define TX1 17  // Example custom pin for UART1 TX
-
-
-// SOFTWARE SERIAL on other pins
-// #include <SoftwareSerial.h>
-// // RX and TX pins
-// int RXPin = 10;
-// int TXPin = 11;
-// // Create a SoftwareSerial object
-// SoftwareSerial mySerial(RXPin, TXPin);
-// //mySerial.begin(9600);
 
 /** Define the SDI-12 bus */
 SDI12 mySDI12(DATA_PIN);
@@ -271,12 +257,13 @@ String measureString(String measure_command, uint8_t address)
     return sensorResponse;
 }
 
-bool human_print = false;
+bool human_print = true;
 void loop() {
   
   String sensorResponse = "";
 
-  sensorResponse = requestAndReadData("?I!", true);  // Command to get sensor info
+  // sensorResponse = requestAndReadData("?I!", true);  // Command to get sensor info
+  // sensorResponse = requestAndReadData("?I!", false);  // Command to get sensor info
   //Serial.println(sensorResponse);
 
   // float values[6];
@@ -285,26 +272,31 @@ void loop() {
   // measure("M",0,values,max_values,&num_values);
 
 
-  sensorResponse = measureString("C",0);
+  uint8_t addr = 0;
+  sensorResponse = requestAndReadData(String(addr) + "I!", false);  // Command to get sensor info
+  if(human_print) Serial.print("info:    ");
+  Serial.println(sensorResponse);
+
+  sensorResponse = measureString("C",addr);
   //sensorResponse = sensorResponse.substring(3); // first 3 characters are <address><CR><LF> => remove
   sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
   if(human_print) Serial.print("permitivity:    ");
   Serial.println(sensorResponse);
 
-  sensorResponse = measureString("C1",0);
-  sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  if(human_print) Serial.print("soil moisture:  ");
-  Serial.println(sensorResponse);
+  // sensorResponse = measureString("C1",addr);
+  // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
+  // if(human_print) Serial.print("soil moisture:  ");
+  // Serial.println(sensorResponse);
 
-  sensorResponse = measureString("C8",0);
-  sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  if(human_print) Serial.print("millivolts:     ");
-  Serial.println(sensorResponse);
+  // sensorResponse = measureString("C8",addr);
+  // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
+  // if(human_print) Serial.print("millivolts:     ");
+  // Serial.println(sensorResponse);
 
-  sensorResponse = measureString("C9",0);
-  sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
-  if(human_print) Serial.print("raw ADC:        ");
-  Serial.println(sensorResponse);
+  // sensorResponse = measureString("C9",addr);
+  // sensorResponse = sensorResponse.substring(1); // first 1 characters is <address> => remove
+  // if(human_print) Serial.print("raw ADC:        ");
+  // Serial.println(sensorResponse);
 
   // char string_buffer[128]; // Buffer to hold the formatted string
   // snprintf(string_buffer, sizeof(string_buffer), "DATA: %s", sensorResponse.c_str());
