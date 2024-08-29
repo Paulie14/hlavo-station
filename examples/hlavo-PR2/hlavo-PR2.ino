@@ -1,8 +1,4 @@
-/**
- */
-#include <SPI.h>
-#include <esp_intr_alloc.h>
-#include "pr2_comm.h"
+#include "sdi12_comm.h"
 #include "pr2_data.h"
 #include "pr2_reader.h"
 
@@ -11,17 +7,65 @@
 #define POWER_PIN 47       /*!< The sensor power pin (or -1 if not switching power) */
 
 /** Define the SDI-12 bus */
-PR2Comm pr2(PR2_DATA_PIN, 3);
+SDI12Comm sdi12_comm(PR2_DATA_PIN, 3);
+
+const uint8_t n_sdi12_sensors = 3;
+const uint8_t sdi12_addresses[n_sdi12_sensors] = {0,1,3};  // sensor addresses on SDI-12
+
+PR2Reader pr2_readers[3] = {
+  PR2Reader(sdi12_comm, sdi12_addresses[0]),
+  PR2Reader(sdi12_comm, sdi12_addresses[1]),
+  PR2Reader(sdi12_comm, sdi12_addresses[2])
+};
+uint8_t iss = 0;  // current sensor reading
+bool pr2_all_finished = false;
+
+// // use PR2 reader to request and read data from PR2
+// // minimize delays so that it does not block main loop
+void collect_and_write_PR2()
+{
+  bool res = false;
+  res = pr2_readers[iss].TryRequest();
+  if(!res)  // failed request
+  {
+    pr2_readers[iss].Reset();
+    iss++;
+    return;
+  }
+
+  pr2_readers[iss].TryRead();
+  if(pr2_readers[iss].finished)
+  {
+    // DateTime dt = rtc_clock.now();
+    // pr2_readers[iss].data.datetime = dt;
+    // if(VERBOSE >= 1)
+    {
+      // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
+      char msg[400];
+      hlavo::SerialPrintf(sizeof(msg)+20, "PR2[a%d]: %s\n",sdi12_addresses[iss], pr2_readers[iss].data.print(msg, sizeof(msg)));
+    }
+
+    // Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
+    // CSVHandler::appendData(data_spi_filenames[iss], &(pr2_readers[iss].data));
+
+    pr2_readers[iss].Reset();
+    iss++;
+    if(iss == n_sdi12_sensors)
+    {
+      iss = 0;
+      pr2_all_finished = true;
+    }
+  }
+}
+
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
   while (!Serial)
     ;
 
-  gpio_install_isr_service( ESP_INTR_FLAG_IRAM);
-
   Serial.println("Opening SDI-12 bus...");
-  pr2.begin();
+  sdi12_comm.begin();
   delay(500);  // allow things to settle
 
   // Power the sensors;
@@ -33,8 +77,8 @@ void setup() {
   }
 
   // CHANGE ADDRESS
-  // String si = pr2.requestAndReadData("0A1!", false);  // Command to get sensor info
-  // String si = pr2.requestAndReadData("1A0!", false);  // Command to get sensor info
+  // String si = sdi12_comm.requestAndReadData("0A1!", false);  // Command to get sensor info
+  // String si = sdi12_comm.requestAndReadData("1A0!", false);  // Command to get sensor info
 
   Serial.flush();
 }
@@ -51,14 +95,16 @@ void read_pr2(uint8_t address)
 
   delay(300);
   String info_cmd = String(address) + "I!";
-  String si = pr2.requestAndReadData(info_cmd, false);  // Command to get sensor info
+  uint8_t nbytes = 0;
+  Serial.println(info_cmd);
+  String si = sdi12_comm.requestAndReadData(info_cmd.c_str(), &nbytes);  // Command to get sensor info
   delay(300);
 
-  sensorResponse = pr2.measureRequestAndRead("C", address, values, &n_values);
-  pr2.print_values("permitivity", values, n_values);
+  sensorResponse = sdi12_comm.measureRequestAndRead("C", address, values, &n_values);
+  sdi12_comm.print_values("permitivity", values, n_values);
 
-  sensorResponse = pr2.measureRequestAndRead("C1", address, values, &n_values);
-  pr2.print_values("soil moisture mineral", values, n_values);
+  // sensorResponse = pr2.measureRequestAndRead("C1", address, values, &n_values);
+  // pr2.print_values("soil moisture mineral", values, n_values);
 
   // sensorResponse = pr2.measureRequestAndRead("C2", address, values, &n_values);
   // pr2.print_values("soil moisture organic", values, n_values);
@@ -75,22 +121,10 @@ void read_pr2(uint8_t address)
   // sensorResponse = pr2.measureRequestAndRead("C8", address, values, &n_values);
   // pr2.print_values("millivolts uncalibrated", values, n_values);
 
-  sensorResponse = pr2.measureRequestAndRead("C9", address, values, &n_values);
-  pr2.print_values("raw ADC", values, n_values);
+  // sensorResponse = pr2.measureRequestAndRead("C9", address, values, &n_values);
+  // pr2.print_values("raw ADC", values, n_values);
 }
 
-
-// PR2Reader pr2_reader(pr2, 0);
-
-
-// Reading sequentially from all sensors withou blocking loop due to waiting.
-const uint8_t n_pr2_sensors = 2;
-const uint8_t pr2_addresses[n_pr2_sensors] = {0,1};  // sensor addresses on SDI-12
-PR2Reader pr2_readers[2] = {
-  PR2Reader(pr2, pr2_addresses[0]),
-  PR2Reader(pr2, pr2_addresses[1])
-};
-uint8_t iadd = 0;
 
 
 
@@ -99,14 +133,15 @@ void loop() {
   delay(300);
   Serial.println("TICK");
 
-  String sensorResponse = "";
+  // String sensorResponse = "";
 
   // delay(300);
 
   // String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
 
-  // // String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
-  // // Serial.println(si);
+  // uint8_t nbytes = 0;
+  // String si = sdi12_comm.requestAndReadData("?I!", &nbytes);  // Command to get sensor info
+  // Serial.println(si);
 
   // delay(300);
 
@@ -115,23 +150,29 @@ void loop() {
   // read_pr2(0);
   // Serial.println("---------------------------------------------------- address 1");
   // read_pr2(1);
+  // Serial.println("---------------------------------------------------- address 3");
+  // read_pr2(3);
 
-  {
-    pr2_readers[iadd].TryRequest();
-    pr2_readers[iadd].TryRead();
-    if(pr2_readers[iadd].finished)
-    {
-      char csvLine[200];
-      Serial.println(pr2_readers[iadd].data.dataToCsvLine(csvLine));
-      pr2_readers[iadd].Reset();
-
-      iadd++;
-      if(iadd == 2)
-      {
-        iadd = 0;
-      }
-    }
+  if(!pr2_all_finished){
+    collect_and_write_PR2();
   }
+
+  // {
+  //   pr2_readers[iadd].TryRequest();
+  //   pr2_readers[iadd].TryRead();
+  //   if(pr2_readers[iadd].finished)
+  //   {
+  //     char csvLine[200];
+  //     Serial.println(pr2_readers[iadd].data.dataToCsvLine(csvLine, 200));
+  //     pr2_readers[iadd].Reset();
+
+  //     iadd++;
+  //     if(iadd == 2)
+  //     {
+  //       iadd = 0;
+  //     }
+  //   }
+  // }
 
   {
     // pr2_reader.TryRequest();
