@@ -2,6 +2,8 @@
 #include "pr2_data.h"
 #include "pr2_reader.h"
 
+#include "Every.h"
+
 #define SERIAL_BAUD 115200 /*!< The baud rate for the output serial port */
 #define PR2_DATA_PIN 4         /*!< The pin of the SDI-12 data bus */
 #define POWER_PIN 47       /*!< The sensor power pin (or -1 if not switching power) */
@@ -19,6 +21,8 @@ PR2Reader pr2_readers[3] = {
 };
 uint8_t iss = 0;  // current sensor reading
 bool pr2_all_finished = false;
+
+Every timer_L1(20*1000);
 
 // // use PR2 reader to request and read data from PR2
 // // minimize delays so that it does not block main loop
@@ -130,7 +134,7 @@ void read_pr2(uint8_t address)
 
 void loop() {
 
-  delay(300);
+  delay(200);
   Serial.println("TICK");
 
   // String sensorResponse = "";
@@ -156,6 +160,9 @@ void loop() {
   if(!pr2_all_finished){
     collect_and_write_PR2();
   }
+
+  if(timer_L1() && pr2_all_finished)
+    pr2_all_finished = false;
 
   // {
   //   pr2_readers[iadd].TryRequest();
