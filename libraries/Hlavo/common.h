@@ -31,4 +31,10 @@ namespace hlavo{
 
     Serial.print(buf);
   }
+
+  static void setPin(uint8_t pin, uint8_t state)
+  {
+    if(pin>0)
+      digitalWrite(pin, state);
+  }
 };
