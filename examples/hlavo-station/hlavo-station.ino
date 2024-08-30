@@ -84,19 +84,18 @@ void IRAM_ATTR intRaingauge() { weather.intRaingauge(); }
 void IRAM_ATTR intPeriod() { weather.intTimer(); }
 
 /******************************************** PR2 SENSORS ********************************************/
-#include <esp_intr_alloc.h>
-#include "pr2_comm.h"
+#include "sdi12_comm.h"
 #include "pr2_data.h"
 #include "pr2_reader.h"
 
 #define PR2_POWER_PIN 7        // The pin PR2 power
 #define PR2_DATA_PIN 4         // The pin of the SDI-12 data bus
-PR2Comm pr2(PR2_DATA_PIN, 0);  // (data_pin, verbose)
+SDI12Comm sdi12_comm(PR2_DATA_PIN, 0);  // (data_pin, verbose)
 const uint8_t n_pr2_sensors = 2;
 const uint8_t pr2_addresses[n_pr2_sensors] = {0,1};  // sensor addresses on SDI-12
 PR2Reader pr2_readers[2] = {        // readers enable reading all sensors without blocking loop
-  PR2Reader(pr2, pr2_addresses[0]),
-  PR2Reader(pr2, pr2_addresses[1])
+  PR2Reader(sdi12_comm, pr2_addresses[0]),
+  PR2Reader(sdi12_comm, pr2_addresses[1])
 };
 char data_pr2_filenames[n_pr2_sensors][max_filepath_length] = {"pr2_a0.csv", "pr2_a1.csv"};
 
@@ -213,7 +212,15 @@ void meteo_data_write()
 // minimize delays so that it does not block main loop
 void collect_and_write_PR2()
 {
-  pr2_readers[iss].TryRequest();
+  bool res = false;
+  res = pr2_readers[iss].TryRequest();
+  if(!res)  // failed request
+  {
+    pr2_readers[iss].Reset();
+    iss++;
+    return;
+  }
+
   pr2_readers[iss].TryRead();
   if(pr2_readers[iss].finished)
   {
@@ -334,20 +341,19 @@ void setup() {
   }
 
   // PR2
-  gpio_install_isr_service( ESP_INTR_FLAG_IRAM);
   pinMode(PR2_POWER_PIN, OUTPUT);
   digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
   timer_PR2_power.reset();
 
   delay(1000);
   Serial.println("Opening SDI-12 for PR2...");
-  pr2.begin();
+  sdi12_comm.begin();
 
   delay(1000);  // allow things to settle
   uint8_t nbytes = 0;
   for(int i=0; i<n_pr2_sensors; i++){
     String cmd = String(pr2_addresses[i]) + "I!";
-    Logger::print(pr2.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+    Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
   }
 
   // while(1){delay(100);}
