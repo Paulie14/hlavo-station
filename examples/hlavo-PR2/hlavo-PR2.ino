@@ -34,6 +34,9 @@ void collect_and_write_PR2()
   {
     pr2_readers[iss].Reset();
     iss++;
+
+    if(iss >= n_sdi12_sensors)
+      iss = 0;
     return;
   }
 

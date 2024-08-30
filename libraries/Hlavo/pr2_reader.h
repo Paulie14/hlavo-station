@@ -67,7 +67,9 @@ void PR2Reader::TryRead()
       {
         case 0: data.setPermitivity(rec_values, rec_n_values); break;
         case 1: data.setSoilMoisture(rec_values, rec_n_values); break;
-        case 2: data.setRaw_ADC(&rec_values[1], rec_n_values-1); break;
+        case 2: if(rec_n_values > 0)
+                  data.setRaw_ADC(&rec_values[1], rec_n_values-1);
+                break;
       }
     }
     icmd++;

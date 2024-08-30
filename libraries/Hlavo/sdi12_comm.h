@@ -6,8 +6,10 @@
 #include "Logger.h"
 #include "stdlib.h"
 
-// Fix no strof for Arduino
-#define strtof(A, B) strtod(A, B)
+#ifndef defined(ESP32) || defined(ESP8266)
+  // Fix no strof for Arduino
+  #define strtof(A, B) strtod(A, B)
+#endif
 
 // Global timer for PR2 request-read delay.
 Timer sdi12_delay_timer(2200, false);
@@ -21,6 +23,7 @@ class SDI12Comm
     // static const uint16_t _measure_delay = 2200; // waiting between measure request and data request
     // static const uint8_t n_bytes_per_val = 7;
     static const uint8_t max_msg_length = 100;
+    static const int8_t extra_wake_delay = 0;
     // static const char* crlf;
 
     uint8_t _verbose = 0;
@@ -161,29 +164,30 @@ char* SDI12Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
 
   for(int i=0; i<max_msg_length; i++)
     _msg_buf[i] = 0;
+
   _SDI12.clearBuffer();
   _SDI12.clearWriteError();
+  delay(20);
 
-  _SDI12.sendCommand(command); // Send the SDI-12 command
-  delay(50);                   // Wait for response to be ready
+  _SDI12.sendCommand(command, extra_wake_delay); // Send the SDI-12 command
+  delay(100);                   // Wait for response to be ready
   Logger::printf(Logger::INFO, "Command: '%s'\n", command);
 
   uint8_t counter = 0;
   //Read the response from the sensor
   while (_SDI12.available()) { // Check if there is data available to read
-    char c = _SDI12.read();    // Read a single character
-    if (c != -1) {              // Check if the character is valid
-      _msg_buf[counter] = c;      // Append the character to the response string
-      counter++;
 
-      if(_verbose > 1){
-        Serial.print(c, HEX); Serial.print(" ");
-      }
-      if(counter >= max_msg_length)
-      {
-        Logger::print("PR2Comm::requestAndReadData Max length reached!", Logger::ERROR);
-        break;
-      }
+    char c = _SDI12.read();    // Read a single character
+    _msg_buf[counter] = c;      // Append the character to the response string
+    counter++;
+
+    if(_verbose > 1){
+      Serial.print(c, HEX); Serial.print(" ");
+    }
+    if(counter >= max_msg_length)
+    {
+      Logger::print("PR2Comm::requestAndReadData Max length reached!", Logger::ERROR);
+      break;
     }
     delay(10);  // otherwise it would leave some chars to next message...
   }
@@ -275,36 +279,34 @@ char* SDI12Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
 
   if(n_bytes <= 5)
   {
-    // Logger::printf(Logger::ERROR, "ERROR: PR2_comm [%s] - no valid response received!\n", data_command.c_str());
+    Logger::printf(Logger::ERROR, "ERROR: sdi12[%s] - no valid response received!\n", data_command.c_str());
     *n_values = 0;
     return nullptr;
   }
 
-  char* msg_start = findFirstDigit(_msg_buf, n_bytes);
+  // char* msg_start = findFirstDigit(_msg_buf, n_bytes);
   // if(_verbose>0)
     // hlavo::SerialPrintf(120, "cleared msg: %s\n", msg_start);
 
-// is valid message?
+  // is it a valid message?
   bool res = true;
-  res = _msg_buf[n_bytes-1] == '\n';  // 0A
-  res = _msg_buf[n_bytes-2] == '\r';  // 0D
-  uint8_t raddress = *msg_start - '0';
-  res = raddress == address;
+  res = res && _msg_buf[n_bytes-1] == '\n';  // 0A
+  res = res && _msg_buf[n_bytes-2] == '\r';  // 0D
+  uint8_t raddress = _msg_buf[0] - '0';
+  res = res && raddress == address;           // returns the requested address
 
   if(! res)
   {
-    // Logger::print("Invalid message received.", Logger::MessageType::ERROR);
+    Logger::print("Invalid message received.", Logger::MessageType::ERROR);
     *n_values = 0;
-    return msg_start;
+    return _msg_buf;
   }
 
   uint8_t parsed_values = 0; // Number of values successfully parsed
-  char* msg_ptr;
+  char* msg_ptr = _msg_buf + 1; // skip leading address
   // Extracts the device address and stores a ptr to the rest of the
   // message buffer for use below (to extract values only)
-  strtof(msg_start, &msg_ptr);
-  // uint8_t raddress = strtof(msg_start, &msg_ptr);
-  // Serial.printf("address: %d\n", raddress);
+  // strtof(msg_start, &msg_ptr);
 
   char* next_msg_ptr;
   float value;
@@ -314,6 +316,8 @@ char* SDI12Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
   for (size_t i = 0; i < _n_expected; i++) {
       value = strtof(msg_ptr, &next_msg_ptr);
       if(msg_ptr == next_msg_ptr){
+          // while(*msg_ptr != '+' || *msg_ptr != '-' || msg_ptr != _msg_buf+nbytes)
+          //   msg_ptr = msg_ptr + 1;
           break;
       }
       // Serial.printf("Value: %f\n", value);
@@ -322,7 +326,7 @@ char* SDI12Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
   }
 
   *n_values = parsed_values;
-  return msg_start;
+  return _msg_buf;
 }
 
 char* SDI12Comm::measureRequestAndRead(String measure_command,uint8_t address, float* values, uint8_t* n_values)
