@@ -9,7 +9,7 @@
 class PR2Reader{
   private:
     uint8_t _address;
-    SDI12Comm _pr2_comm;
+    SDI12Comm* _sdi12_comm;
 
     static const uint8_t _n_fields = 3;
     const char* _list_of_commands[_n_fields] = {"C", "C1", "C9"};
@@ -23,15 +23,15 @@ class PR2Reader{
     PR2Data data;
     bool finished = false;
 
-    PR2Reader(SDI12Comm &pr2_comm, uint8_t address);
+    PR2Reader(SDI12Comm* sdi12_comm, uint8_t address);
     bool TryRequest();
     void TryRead();
     void Reset();
 };
 
 
-PR2Reader::PR2Reader(SDI12Comm &pr2_comm, uint8_t address)
-  :_address(address), _pr2_comm(pr2_comm)
+PR2Reader::PR2Reader(SDI12Comm* sdi12_comm, uint8_t address)
+  :_address(address), _sdi12_comm(sdi12_comm)
 {
   Reset();
 }
@@ -42,7 +42,7 @@ bool PR2Reader::TryRequest()
   if( ! (sdi12_delay_timer.running))
   {
     bool res = false;
-    _pr2_comm.measureRequest(_list_of_commands[icmd], _address, &res);
+    _sdi12_comm->measureRequest(_list_of_commands[icmd], _address, &res);
     if(res)
     {
       sdi12_delay_timer.reset();
@@ -59,7 +59,7 @@ void PR2Reader::TryRead()
   if(sdi12_delay_timer())
   {
     // Logger::print("PR2Reader::TryRead timer finished");
-    char* res = _pr2_comm.measureRead(_address, rec_values, &rec_n_values);
+    char* res = _sdi12_comm->measureRead(_address, rec_values, &rec_n_values);
     // _pr2_comm.print_values("field", rec_values, rec_n_values);
     if(res != nullptr)
     {

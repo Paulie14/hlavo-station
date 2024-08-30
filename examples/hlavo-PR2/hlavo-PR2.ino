@@ -15,9 +15,9 @@ const uint8_t n_sdi12_sensors = 3;
 const uint8_t sdi12_addresses[n_sdi12_sensors] = {0,1,3};  // sensor addresses on SDI-12
 
 PR2Reader pr2_readers[3] = {
-  PR2Reader(sdi12_comm, sdi12_addresses[0]),
-  PR2Reader(sdi12_comm, sdi12_addresses[1]),
-  PR2Reader(sdi12_comm, sdi12_addresses[2])
+  PR2Reader(&sdi12_comm, sdi12_addresses[0]),
+  PR2Reader(&sdi12_comm, sdi12_addresses[1]),
+  PR2Reader(&sdi12_comm, sdi12_addresses[2])
 };
 uint8_t iss = 0;  // current sensor reading
 bool pr2_all_finished = false;
@@ -86,6 +86,13 @@ void setup() {
   // CHANGE ADDRESS
   // String si = sdi12_comm.requestAndReadData("0A1!", false);  // Command to get sensor info
   // String si = sdi12_comm.requestAndReadData("1A0!", false);  // Command to get sensor info
+
+  delay(1000);  // allow things to settle
+  uint8_t nbytes = 0;
+  for(int i=0; i<n_sdi12_sensors; i++){
+    String cmd = String(sdi12_addresses[i]) + "I!";
+    Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+  }
 
   Serial.flush();
 }

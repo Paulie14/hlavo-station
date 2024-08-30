@@ -94,8 +94,8 @@ SDI12Comm sdi12_comm(PR2_DATA_PIN, 0);  // (data_pin, verbose)
 const uint8_t n_pr2_sensors = 2;
 const uint8_t pr2_addresses[n_pr2_sensors] = {0,1};  // sensor addresses on SDI-12
 PR2Reader pr2_readers[2] = {        // readers enable reading all sensors without blocking loop
-  PR2Reader(sdi12_comm, pr2_addresses[0]),
-  PR2Reader(sdi12_comm, pr2_addresses[1])
+  PR2Reader(&sdi12_comm, pr2_addresses[0]),
+  PR2Reader(&sdi12_comm, pr2_addresses[1])
 };
 char data_pr2_filenames[n_pr2_sensors][max_filepath_length] = {"pr2_a0.csv", "pr2_a1.csv"};
 
