@@ -1,5 +1,5 @@
-#ifndef SDI12_COMM_H_
-#define SDI12_COMM_H_
+#ifndef HLAVO_DATA_BASE_H_
+#define HLAVO_DATA_BASE_H_
 
 #include <RTClib.h>
 #include "common.h"
@@ -28,4 +28,4 @@ char* DataBase::dataToCsvLine(char* csvLine) const
   return dataToCsvLine(csvLine, hlavo::max_csvline_length);
 }
 
-#endif // SDI12_COMM_H_
+#endif // HLAVO_DATA_BASE_H_
