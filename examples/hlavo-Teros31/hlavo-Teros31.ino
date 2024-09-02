@@ -97,54 +97,16 @@ void setup() {
   Serial.flush();
 }
 
-bool human_print = true;
-
-
-// Sequential "blocking" read
-void read_pr2(uint8_t address)
-{
-  float values[10];
-  uint8_t n_values = 0;
-  String sensorResponse = "";
-
-  delay(300);
-  String info_cmd = String(address) + "I!";
-  uint8_t nbytes = 0;
-  Serial.println(info_cmd);
-  String si = sdi12_comm.requestAndReadData(info_cmd.c_str(), &nbytes);  // Command to get sensor info
-  delay(300);
-
-  sensorResponse = sdi12_comm.measureRequestAndRead("C", address, values, &n_values);
-  sdi12_comm.print_values("permitivity", values, n_values);
-}
-
-
-
-
 void loop() {
 
   delay(200);
   Serial.println("TICK");
-
-  // String sensorResponse = "";
-
-  // delay(300);
-
-  // String si = pr2.requestAndReadData("?I!", false);  // Command to get sensor info
 
   // uint8_t nbytes = 0;
   // String si = sdi12_comm.requestAndReadData("?I!", &nbytes);  // Command to get sensor info
   // Serial.println(si);
 
   // delay(300);
-
-
-  // Serial.println("---------------------------------------------------- address 0");
-  // read_pr2(0);
-  // Serial.println("---------------------------------------------------- address 1");
-  // read_pr2(1);
-  // Serial.println("---------------------------------------------------- address 3");
-  // read_pr2(3);
 
   if(!teros31_all_finished){
     collect_and_write_Teros31();
