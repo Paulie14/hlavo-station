@@ -9,7 +9,7 @@
 /// It uses common timer pr2_delay_timer, which must be global.
 class PR2Reader{
   private:
-    uint8_t _address;
+    char _address;
     SDI12Comm* _sdi12_comm;
 
     static const uint8_t _n_fields = 3;
@@ -24,14 +24,14 @@ class PR2Reader{
     PR2Data data;
     bool finished = false;
 
-    PR2Reader(SDI12Comm* sdi12_comm, uint8_t address);
+    PR2Reader(SDI12Comm* sdi12_comm, char address);
     bool TryRequest();
     void TryRead();
     void Reset();
 };
 
 
-PR2Reader::PR2Reader(SDI12Comm* sdi12_comm, uint8_t address)
+PR2Reader::PR2Reader(SDI12Comm* sdi12_comm, char address)
   :_address(address), _sdi12_comm(sdi12_comm)
 {
   Reset();

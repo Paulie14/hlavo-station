@@ -12,7 +12,7 @@
 SDI12Comm sdi12_comm(PR2_DATA_PIN, 3);
 
 const uint8_t n_sdi12_sensors = 3;
-const uint8_t sdi12_addresses[n_sdi12_sensors] = {0,1,3};  // sensor addresses on SDI-12
+const char sdi12_addresses[n_sdi12_sensors] = {'A','B','C'};  // sensor addresses on SDI-12, supported by Teros31: 0-9, A-Z
 
 Teros31Reader teros31_readers[3] = {
   Teros31Reader(&sdi12_comm, sdi12_addresses[0]),
@@ -49,7 +49,7 @@ void collect_and_write_Teros31()
     {
       // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
       char msg[400];
-      hlavo::SerialPrintf(sizeof(msg)+20, "Teros31[a%d]: %s\n",sdi12_addresses[iss], teros31_readers[iss].data.print(msg, sizeof(msg)));
+      hlavo::SerialPrintf(sizeof(msg)+20, "Teros31[%c]: %s\n",sdi12_addresses[iss], teros31_readers[iss].data.print(msg, sizeof(msg)));
     }
 
     // Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
@@ -83,17 +83,23 @@ void setup() {
     delay(500);
   }
 
-  // CHANGE ADDRESS
-  // String si = sdi12_comm.requestAndReadData("0A1!", false);  // Command to get sensor info
-  // String si = sdi12_comm.requestAndReadData("1A0!", false);  // Command to get sensor info
-
   delay(1000);  // allow things to settle
   uint8_t nbytes = 0;
+
+  // CHANGE ADDRESS
+  // String si = sdi12_comm.requestAndReadData("0Aa!", &nbytes);  // Command to get sensor info
+  // String si = sdi12_comm.requestAndReadData("1A0!", false);  // Command to get sensor info
+  // Logger::print(sdi12_comm.requestAndReadData("7AA!", &nbytes));  // Command to get sensor info
+  // delay(1000);
+
   for(int i=0; i<n_sdi12_sensors; i++){
     String cmd = String(sdi12_addresses[i]) + "I!";
     Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
   }
+  while(1)
+    ;
 
+  Serial.println("Setup complete.");
   Serial.flush();
 }
 

@@ -12,7 +12,7 @@
 SDI12Comm sdi12_comm(PR2_DATA_PIN, 3);
 
 const uint8_t n_sdi12_sensors = 3;
-const uint8_t sdi12_addresses[n_sdi12_sensors] = {0,1,3};  // sensor addresses on SDI-12
+const char sdi12_addresses[n_sdi12_sensors] = {'0','1','3'};  // sensor addresses on SDI-12
 
 PR2Reader pr2_readers[3] = {
   PR2Reader(&sdi12_comm, sdi12_addresses[0]),
@@ -49,7 +49,7 @@ void collect_and_write_PR2()
     {
       // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
       char msg[400];
-      hlavo::SerialPrintf(sizeof(msg)+20, "PR2[a%d]: %s\n",sdi12_addresses[iss], pr2_readers[iss].data.print(msg, sizeof(msg)));
+      hlavo::SerialPrintf(sizeof(msg)+20, "PR2[%c]: %s\n",sdi12_addresses[iss], pr2_readers[iss].data.print(msg, sizeof(msg)));
     }
 
     // Logger::print("collect_and_write_PR2 - CSVHandler::appendData");

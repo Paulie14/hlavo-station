@@ -57,7 +57,7 @@ char* Teros31Data::dataToCsvLine(char* csvLine, size_t size) const {
 char* Teros31Data::print(char* msg_buf, size_t size) const {
 
   const char * dt = datetime.timestamp().c_str();
-  snprintf(msg_buf, size, "%s\n", dt);
+  snprintf(msg_buf, size, "%s ", dt);
   char number[10];
 
   strcat_safe(msg_buf, size, "Press.: ");

@@ -39,12 +39,12 @@ class SDI12Comm
     void begin();
 
     // String requestAndReadData(String command, bool trim = false);
-    // String measureConcurrent(String measure_command, uint8_t address);
+    // String measureConcurrent(String measure_command, char address);
 
     char* requestAndReadData(const char* command, uint8_t* n_bytes);
-    char* measureRequest(String measure_command, uint8_t address, bool *result);
-    char* measureRead(uint8_t address, float* values, uint8_t* n_values);
-    char* measureRequestAndRead(String measure_command,uint8_t address, float* values, uint8_t* n_values);
+    char* measureRequest(String measure_command, char address, bool *result);
+    char* measureRead(char address, float* values, uint8_t* n_values);
+    char* measureRequestAndRead(String measure_command,char address, float* values, uint8_t* n_values);
     void print_values(String field_name, float* values, uint8_t n_values);
 
   private:
@@ -110,7 +110,7 @@ void SDI12Comm::begin()
   // return sensorResponse;
 // }
 
-// String PR2Comm::measureConcurrent(String measure_command, uint8_t address)
+// String PR2Comm::measureConcurrent(String measure_command, char address)
 // {
 //     measure_command = String(address) + measure_command + "!";
 //     String measureResponse = requestAndReadData(measure_command, true);  // Command to take a measurement
@@ -219,7 +219,7 @@ char* SDI12Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
 }
 
 
-char* SDI12Comm::measureRequest(String measure_command, uint8_t address, bool *result)
+char* SDI12Comm::measureRequest(String measure_command, char address, bool *result)
 {
   uint8_t n_bytes = 0;
   measure_command = String(address) + measure_command + "!";
@@ -244,7 +244,7 @@ char* SDI12Comm::measureRequest(String measure_command, uint8_t address, bool *r
   bool res = true;
   res = res && _msg_buf[n_bytes-1] == '\n';  // 0A
   res = res && _msg_buf[n_bytes-2] == '\r';  // 0D
-  uint8_t raddress = _msg_buf[0] - '0';
+  char raddress = _msg_buf[0];
   res = res && raddress == address;           // returns the requested address
   uint8_t delay_time = _msg_buf[3]-'0';       // delay time in seconds
   res = res && (0 < delay_time) && (delay_time < 10);  // delay time between 1-9
@@ -269,7 +269,7 @@ char* SDI12Comm::measureRequest(String measure_command, uint8_t address, bool *r
   return _msg_buf;
 }
 
-char* SDI12Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
+char* SDI12Comm::measureRead(char address, float* values, uint8_t* n_values)
 {
   uint8_t n_bytes = 0;
   // for C commands
@@ -293,7 +293,7 @@ char* SDI12Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
   bool res = true;
   res = res && _msg_buf[n_bytes-1] == '\n';  // 0A
   res = res && _msg_buf[n_bytes-2] == '\r';  // 0D
-  uint8_t raddress = _msg_buf[0] - '0';
+  char raddress = _msg_buf[0];
   res = res && raddress == address;           // returns the requested address
 
   if(! res)
@@ -330,7 +330,7 @@ char* SDI12Comm::measureRead(uint8_t address, float* values, uint8_t* n_values)
   return _msg_buf;
 }
 
-char* SDI12Comm::measureRequestAndRead(String measure_command,uint8_t address, float* values, uint8_t* n_values)
+char* SDI12Comm::measureRequestAndRead(String measure_command,char address, float* values, uint8_t* n_values)
 {
   bool res = false;
   measureRequest(measure_command, address, &res);

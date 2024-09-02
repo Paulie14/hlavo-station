@@ -12,7 +12,7 @@ using namespace hlavo;
 /// It uses common timer pr2_delay_timer, which must be global.
 class Teros31Reader{
   private:
-    uint8_t _address;
+    char _address;
     SDI12Comm * _sdi12_comm;
 
     float rec_values[3];
@@ -22,14 +22,14 @@ class Teros31Reader{
     Teros31Data data;
     bool finished = false;
 
-    Teros31Reader(SDI12Comm* sdi12_comm, uint8_t address);
+    Teros31Reader(SDI12Comm* sdi12_comm, char address);
     bool TryRequest();
     void TryRead();
     void Reset();
 };
 
 
-Teros31Reader::Teros31Reader(SDI12Comm* sdi12_comm, uint8_t address)
+Teros31Reader::Teros31Reader(SDI12Comm* sdi12_comm, char address)
   :_address(address), _sdi12_comm(sdi12_comm)
 {
   Reset();
