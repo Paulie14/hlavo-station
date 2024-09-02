@@ -1,5 +1,5 @@
-#pragma once
-
+#ifndef HLAVO_CLOCK_H_
+#define HLAVO_CLOCK_H_
 
 #if defined(ESP32) || defined(ESP8266)
   #include <ESP32Time.h>
@@ -60,3 +60,5 @@ class Clock {
       return rtc.now();
     }
 };
+
+#endif // HLAVO_CLOCK_H_

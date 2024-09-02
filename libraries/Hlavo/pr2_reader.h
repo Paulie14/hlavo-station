@@ -1,4 +1,5 @@
-# pragma once
+#ifndef PR2_READER_H_
+#define PR2_READER_H_
 
 #include "sdi12_comm.h"
 #include "pr2_data.h"
@@ -88,3 +89,5 @@ void PR2Reader::Reset()
   finished = false;
   data = PR2Data();
 }
+
+#endif // PR2_READER_H_

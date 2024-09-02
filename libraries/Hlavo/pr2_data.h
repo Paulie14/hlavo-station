@@ -1,4 +1,5 @@
-# pragma once
+#ifndef PR2_DATA_H_
+#define PR2_DATA_H_
 
 #include <RTClib.h> // just for DateTime
 #include "data_base.h"
@@ -139,3 +140,5 @@ char* PR2Data::print(char* msg_buf, size_t size) const {
   strcat_safe(msg_buf, size, number);
   return msg_buf;
 }
+
+#endif // PR2_DATA_H_

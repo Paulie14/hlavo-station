@@ -1,4 +1,6 @@
-#pragma once
+#ifndef HLAVO_COMMON_H_
+#define HLAVO_COMMON_H_
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -38,3 +40,5 @@ namespace hlavo{
       digitalWrite(pin, state);
   }
 };
+
+#endif // HLAVO_COMMON_H_

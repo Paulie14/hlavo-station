@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HLAVO_LOGGER_H_
+#define HLAVO_LOGGER_H_
 
 #include <RTClib.h>
 #include <SD.h>
@@ -182,3 +183,5 @@ String Logger::messageTypeToString(MessageType type) {
         default: return "UNKNOWN";
     }
 }
+
+#endif // HLAVO_LOGGER_H_

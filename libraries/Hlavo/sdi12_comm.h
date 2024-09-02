@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SDI12_COMM_H_
+#define SDI12_COMM_H_
 
 #include "common.h"
 #include <Every.h>
@@ -372,3 +373,4 @@ char* SDI12Comm::findFirstDigit(char* str, uint8_t n_bytes) {
   return nullptr;  // Return nullptr if no digit is found
 }
 
+#endif // SDI12_COMM_H_
