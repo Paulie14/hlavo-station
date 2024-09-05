@@ -5,11 +5,11 @@
 #include "Every.h"
 
 #define SERIAL_BAUD 115200 /*!< The baud rate for the output serial port */
-#define PR2_DATA_PIN 4         /*!< The pin of the SDI-12 data bus */
+#define SDI12_DATA_PIN 4   /*!< The pin of the SDI-12 data bus */
 #define POWER_PIN 47       /*!< The sensor power pin (or -1 if not switching power) */
 
 /** Define the SDI-12 bus */
-SDI12Comm sdi12_comm(PR2_DATA_PIN, 3);
+SDI12Comm sdi12_comm(SDI12_DATA_PIN, 3);
 
 const uint8_t n_sdi12_sensors = 3;
 const char sdi12_addresses[n_sdi12_sensors] = {'0','1','3'};  // sensor addresses on SDI-12
@@ -24,8 +24,8 @@ bool pr2_all_finished = false;
 
 Every timer_L1(20*1000);
 
-// // use PR2 reader to request and read data from PR2
-// // minimize delays so that it does not block main loop
+// use PR2 reader to request and read data from PR2
+// minimize delays so that it does not block main loop
 void collect_and_write_PR2()
 {
   bool res = false;

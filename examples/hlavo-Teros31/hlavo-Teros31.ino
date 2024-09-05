@@ -5,11 +5,11 @@
 #include "Every.h"
 
 #define SERIAL_BAUD 115200 /*!< The baud rate for the output serial port */
-#define PR2_DATA_PIN 4         /*!< The pin of the SDI-12 data bus */
+#define SDI12_DATA_PIN 4   /*!< The pin of the SDI-12 data bus */
 #define POWER_PIN 47       /*!< The sensor power pin (or -1 if not switching power) */
 
 /** Define the SDI-12 bus */
-SDI12Comm sdi12_comm(PR2_DATA_PIN, 3);
+SDI12Comm sdi12_comm(SDI12_DATA_PIN, 3);
 
 const uint8_t n_sdi12_sensors = 3;
 const char sdi12_addresses[n_sdi12_sensors] = {'A','B','C'};  // sensor addresses on SDI-12, supported by Teros31: 0-9, A-Z
@@ -24,8 +24,8 @@ bool teros31_all_finished = false;
 
 Every timer_L1(20*1000);
 
-// // use PR2 reader to request and read data from PR2
-// // minimize delays so that it does not block main loop
+// use Teros31 reader to request and read data from Teros31
+// minimize delays so that it does not block main loop
 void collect_and_write_Teros31()
 {
   bool res = false;
@@ -96,8 +96,6 @@ void setup() {
     String cmd = String(sdi12_addresses[i]) + "I!";
     Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
   }
-  while(1)
-    ;
 
   Serial.println("Setup complete.");
   Serial.flush();
@@ -113,6 +111,13 @@ void loop() {
   // Serial.println(si);
 
   // delay(300);
+
+  uint8_t nbytes = 0;
+  for(int i=0; i<n_sdi12_sensors; i++){
+    String cmd = String(sdi12_addresses[i]) + "I!";
+    Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+    delay(1000);
+  }
 
   if(!teros31_all_finished){
     collect_and_write_Teros31();
