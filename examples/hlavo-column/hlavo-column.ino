@@ -52,8 +52,9 @@ Clock rtc_clock;
 
 /************************************************ FLOW *************************************************/
 #include "column_flow_data.h"
-#define PUMP_OUT_PIN 21
+#define VALVE_OUT_PIN 15
 
+bool valve_out_open = false;
 bool pump_out_finished = true;
 
 Timer timer_outflow(15*1000, false);    // time for pumping water out
@@ -174,26 +175,37 @@ BME280 tempSensor;
 // default I2C address 0x23 (set in constructor)
 BH1750 lightMeter;
 
+/********************************************** SDI12 COMM ********************************************/
+#include "sdi12_comm.h"
+#define SDI12_DATA_PIN 4         // The pin of the SDI-12 data bus
+
+SDI12Comm sdi12_comm(SDI12_DATA_PIN, 0);  // (data_pin, verbose)
+
 /********************************************* PR2 SENSORS ********************************************/
-#include <esp_intr_alloc.h>
-#include "pr2_comm.h"
 #include "pr2_data.h"
 #include "pr2_reader.h"
 
-#define PR2_POWER_PIN 7        // The pin PR2 power
-#define PR2_DATA_PIN 4         // The pin of the SDI-12 data bus
-PR2Comm pr2(PR2_DATA_PIN, 0);  // (data_pin, verbose)
-const uint8_t n_pr2_sensors = 1;
-const uint8_t pr2_addresses[n_pr2_sensors] = {3};  // sensor addresses on SDI-12
-PR2Reader pr2_readers[1] = {        // readers enable reading all sensors without blocking loop
-  PR2Reader(pr2, pr2_addresses[0])
-};
-char data_pr2_filenames[n_pr2_sensors][max_filepath_length] = {"pr2_a3.csv"};
+const char pr2_address = '3';  // sensor addresses on SDI-12
+PR2Reader pr2_reader = PR2Reader(&sdi12_comm, pr2_address);
+char data_pr2_filename[max_filepath_length] = {"pr2_a3.csv"};
 
-uint8_t iss = 0;  // current sensor reading
 bool pr2_all_finished = false;
 
-Timer timer_PR2_power(2000, false);
+
+/********************************************* Teros31 SENSORS ********************************************/
+#include "teros31_data.h"
+#include "teros31_reader.h"
+const uint8_t n_teros31_sensors = 3;
+const char teros31_addresses[n_teros31_sensors] = {'A','B','C'};  // sensor addresses on SDI-12
+
+Teros31Reader teros31_readers[3] = {
+  Teros31Reader(&sdi12_comm, teros31_addresses[0]),
+  Teros31Reader(&sdi12_comm, teros31_addresses[1]),
+  Teros31Reader(&sdi12_comm, teros31_addresses[2])
+};
+char data_teros31_filenames[n_teros31_sensors][max_filepath_length] = {"teros31_aA.csv", "teros31_aB.csv", "teros31_aC.csv"};
+uint8_t teros31_iss = 0;  // current sensor reading
+bool teros31_all_finished = false;
 
 /****************************************** DATA COLLECTION ******************************************/
 
@@ -211,7 +223,7 @@ void read_water_height()
   {
     timer_outflow.reset();
     pump_out_finished = false;
-    digitalWrite(PUMP_OUT_PIN, HIGH);
+    digitalWrite(VALVE_OUT_PIN, HIGH);
     // reset window
     n_H_collected = 0;
     n_H_collected_start = 0;
@@ -315,29 +327,71 @@ void meteo_data_write()
 // minimize delays so that it does not block main loop
 void collect_and_write_PR2()
 {
-  pr2_readers[iss].TryRequest();
-  pr2_readers[iss].TryRead();
-  if(pr2_readers[iss].finished)
+  bool res = false;
+  res = pr2_reader.TryRequest();
+  if(!res)  // failed request
   {
-    DateTime dt = rtc_clock.now();
-    pr2_readers[iss].data.datetime = dt;
-    if(VERBOSE >= 1)
+    pr2_reader.Reset();
+    return;
+  }
+
+  pr2_reader.TryRead();
+  if(pr2_reader.finished)
+  {
+    // DateTime dt = rtc_clock.now();
+    // pr2_reader.data.datetime = dt;
+    // if(VERBOSE >= 1)
     {
-      // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
+      // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_address);
       char msg[400];
-      Serial.printf("PR2[a%d]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg, sizeof(msg)));
+      hlavo::SerialPrintf(sizeof(msg)+20, "PR2[%c]: %s\n",pr2_address, pr2_reader.data.print(msg, sizeof(msg)));
     }
 
     Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
     CSVHandler::appendData(data_pr2_filenames[iss], &(pr2_readers[iss].data));
 
-    pr2_readers[iss].Reset();
-    iss++;
-    if(iss == n_pr2_sensors)
+    pr2_reader.Reset();
+    pr2_all_finished = true;
+  }
+}
+
+// use Teros31 reader to request and read data from Teros31
+// minimize delays so that it does not block main loop
+void collect_and_write_Teros31()
+{
+  bool res = false;
+  res = teros31_readers[teros31_iss].TryRequest();
+  if(!res)  // failed request
+  {
+    teros31_readers[teros31_iss].Reset();
+    teros31_iss++;
+
+    if(teros31_iss >= n_teros31_sensors)
+      teros31_iss = 0;
+    return;
+  }
+
+  teros31_readers[teros31_iss].TryRead();
+  if(teros31_readers[teros31_iss].finished)
+  {
+    // DateTime dt = rtc_clock.now();
+    // pr2_readers[teros31_iss].data.datetime = dt;
+    // if(VERBOSE >= 1)
     {
-      iss = 0;
-      pr2_all_finished = true;
-      digitalWrite(PR2_POWER_PIN, LOW);  // turn off power for PR2
+      // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[teros31_iss]);
+      char msg[400];
+      hlavo::SerialPrintf(sizeof(msg)+20, "Teros31[%c]: %s\n",teros31_addresses[teros31_iss], teros31_readers[teros31_iss].data.print(msg, sizeof(msg)));
+    }
+
+    // Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
+    // CSVHandler::appendData(data_spi_filenames[teros31_iss], &(pr2_readers[teros31_iss].data));
+
+    teros31_readers[teros31_iss].Reset();
+    teros31_iss++;
+    if(teros31_iss == n_teros31_sensors)
+    {
+      teros31_iss = 0;
+      teros31_all_finished = true;
     }
   }
 }
@@ -433,7 +487,6 @@ void setup() {
     Logger::print("BME280 not found.", Logger::WARN);
   }
 
-  gpio_install_isr_service( ESP_INTR_FLAG_IRAM);
   
   // pumps pins, reset
   pinMode(PUMP_OUT_PIN, OUTPUT);
@@ -446,9 +499,10 @@ void setup() {
   digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
   timer_PR2_power.reset();
 
+  // SDI12
   delay(1000);
   Serial.println("Opening SDI-12 for PR2...");
-  pr2.begin();
+  sdi12_comm.begin();//
 
   delay(1000);  // allow things to settle
   uint8_t nbytes = 0;
@@ -479,6 +533,9 @@ void setup() {
   timer_L2.reset(true);
   timer_L1.reset(true);
   timer_L4.reset(false);
+  pinMode(VALVE_OUT_PIN, OUTPUT);      // Set EN pin for uSUP stabilisator as output
+  digitalWrite(VALVE_OUT_PIN, HIGH);   // Turn on the uSUP power
+
 }
 
 void print_setup_summary(String summary)
