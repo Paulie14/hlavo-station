@@ -414,6 +414,13 @@ void setup() {
   digitalWrite(PIN_ON, HIGH);   // Turn on the uSUP power
   summary += " - POWER PIN " +  String(PIN_ON) + " on\n";
 
+  // pump/valve pins, reset
+  pinMode(VALVE_OUT_PIN, OUTPUT);
+  digitalWrite(VALVE_OUT_PIN, HIGH);
+  summary += " - VALVE OUT OFF (" +  String(VALVE_OUT_PIN) + " on)\n";
+  pinMode(PUMP_IN_PIN, OUTPUT);
+  digitalWrite(PUMP_IN_PIN, LOW);
+  summary += " - PUMP IN OFF (" +  String(PUMP_IN_PIN) + " off)\n";
 
   // I2C setup
   if(Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN))
@@ -455,7 +462,6 @@ void setup() {
       while(1){delay(1000);}
   }
   Logger::setup_log(rtc_clock, "logs");
-  Serial.println("Log set up.");
   Logger::print("Log set up.");
 
   // BH1750 - Light
@@ -487,45 +493,52 @@ void setup() {
     Logger::print("BME280 not found.", Logger::WARN);
   }
 
-  
-  // pumps pins, reset
-  pinMode(PUMP_OUT_PIN, OUTPUT);
-  digitalWrite(PR2_POWER_PIN, LOW);
-  pinMode(PUMP_IN_PIN, OUTPUT);
-  digitalWrite(PR2_POWER_PIN, LOW);
-
-  // PR2
-  pinMode(PR2_POWER_PIN, OUTPUT);
-  digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
-  timer_PR2_power.reset();
-
   // SDI12
   delay(1000);
   Serial.println("Opening SDI-12 for PR2...");
   sdi12_comm.begin();//
 
   delay(1000);  // allow things to settle
+  // get info from all SDI12 sensors
   uint8_t nbytes = 0;
-  Serial.println(pr2.requestAndReadData("?I!", &nbytes));  // Command to get sensor info
-
-
-  // Data files setup
-  char csvLine[400];
-  const char* flow_dir="flow";
-  CSVHandler::createFile(data_flow_filename,
-                         ColumnFlowData::headerToCsvLine(csvLine, max_csvline_length),
-                         dt, flow_dir);
-  for(int i=0; i<n_pr2_sensors; i++){
-    char pr2_dir[20];
-    sprintf(pr2_dir, "pr2_sensor_%d", i);
-    CSVHandler::createFile(data_pr2_filenames[i],
-                              PR2Data::headerToCsvLine(csvLine, max_csvline_length),
-                              dt, pr2_dir);
+  String cmd = String(pr2_address) + "I!";
+  // Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+  char* msg = sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes);
+  delay(500);
+  for(int i=0; i<n_teros31_sensors; i++){
+    cmd = String(teros31_addresses[i]) + "I!";
+    // Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+    char* msg = sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes);
+    delay(500);
   }
+  // while(1){delay(1000);}
+
+
+  // // Data files setup
+  // char csvLine[400];
+  // // flow data file
+  // const char* flow_dir="flow";
+  // CSVHandler::createFile(data_flow_filename,
+  //                        ColumnFlowData::headerToCsvLine(csvLine, max_csvline_length),
+  //                        dt, flow_dir);
+  // // PR2 data file
+  // const char* pr2_dir="pr2_sensor";
+  // CSVHandler::createFile(data_pr2_filename,
+  //                        PR2Data::headerToCsvLine(csvLine, max_csvline_length),
+  //                        dt, pr2_dir);
+  // // Teros31 data files
+  // for(int i=0; i<n_teros31_sensors; i++){
+  //   char teros31_dir[20];
+  //   sprintf(teros31_dir, "teros31_sensor_%d", i);
+  //   CSVHandler::createFile(data_teros31_filenames[i],
+  //                          Teros31Data::headerToCsvLine(csvLine, max_csvline_length),
+  //                          dt, teros31_dir);
+  // }
 
   for(int i=0; i<2; i++)
     rain_regimes[i].compute_trigger();
 
+  delay(500);
   print_setup_summary(summary);
   delay(5000);
 
@@ -533,9 +546,6 @@ void setup() {
   timer_L2.reset(true);
   timer_L1.reset(true);
   timer_L4.reset(false);
-  pinMode(VALVE_OUT_PIN, OUTPUT);      // Set EN pin for uSUP stabilisator as output
-  digitalWrite(VALVE_OUT_PIN, HIGH);   // Turn on the uSUP power
-
 }
 
 void print_setup_summary(String summary)
@@ -545,7 +555,8 @@ void print_setup_summary(String summary)
   summary += F("INO file: " __FILE__ " " __DATE__ " " __TIME__ "\n\n");
   summary += "=======================================================================";
 
-  Logger::print(summary);
+  Serial.print(summary); Serial.println("");
+  // Logger::print(summary);
   Logger::print("HLAVO station is running");
 }
 
@@ -620,7 +631,6 @@ void loop() {
     read_water_height();
   }
 
-  // scan_I2C();
 
   // read values from PR2 sensors when reading not finished yet
   // and write to a file when last values received
