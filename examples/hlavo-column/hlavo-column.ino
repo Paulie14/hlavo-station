@@ -54,11 +54,15 @@ Clock rtc_clock;
 #include "column_flow_data.h"
 #define VALVE_OUT_PIN 15
 
+#include "water_height_sensor.h"  // Water Height sensor S18U
+WaterHeightSensor whs(5, 30, 220, 0.05, 3.13);  // pin, minH, maxH, minV, maxV
+
+bool start_valve_out = false;
 bool valve_out_open = false;
 bool pump_out_finished = true;
 
 Timer timer_outflow(15*1000, false);    // time for pumping water out
-const float H_limit = 20;               // [cm] limit water height to release
+const float H_limit = 200;              // [mm] limit water height to release
 const uint8_t n_H_avg = 5;              // number of flow samples to average
 
 float H_window[n_H_avg];    // collected water height
@@ -464,6 +468,9 @@ void setup() {
   Logger::setup_log(rtc_clock, "logs");
   Logger::print("Log set up.");
 
+  // Water Height sensor S18U
+  whs.begin();
+
   // BH1750 - Light
   if(lightMeter.begin())
   {
@@ -612,17 +619,38 @@ void measureBME280()
   Serial.printf("Humidity: %.0f, Pressure: %.0f, Temperature: %.2f\n", measurements.humidity, measurements.pressure, measurements.temperature);
 }
 
+void controlValveOut()
+{
+  if(start_valve_out)
+  {
+    digitalWrite(VALVE_OUT_PIN, LOW);
+    timer_outflow.reset();
+    valve_out_open = true;
+    start_valve_out = false;
+    Serial.printf("valve out ON\n");
+  }
 
+  if(timer_outflow.after() && valve_out_open)
+  {
+    digitalWrite(VALVE_OUT_PIN, HIGH);
+    valve_out_open = false;
+    Serial.printf("valve out OFF\n");
+  }
+}
 
 /*********************************************** LOOP ***********************************************/ 
 void loop() {
-  
-  // stop pump out
-  if(!pump_out_finished && timer_outflow.after())
+
+  if(timer_L1() && !valve_out_open)
   {
-    digitalWrite(PUMP_OUT_PIN, LOW);  // turn off power for PR2
-    pump_out_finished = true;
+    // read water height
+    float voltage;
+    float height = whs.read(&voltage);
+    Serial.printf("Voltage: %.2f    Height: %.2f\n", voltage, height);
+    start_valve_out = height >= H_limit;  // open valve (once at a time)
   }
+  controlValveOut();
+  return;
 
   // read water height
   if(timer_L1())
