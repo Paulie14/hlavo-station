@@ -23,7 +23,7 @@ class ColumnFlowData : public DataBase{
 
 
 char* ColumnFlowData::headerToCsvLine(char* csvLine, size_t size){
-    const int n_columns = 4;
+    const int n_columns = 5;
     const char* columnNames[] = {
       "DateTime",
       "Height",
@@ -51,26 +51,27 @@ char* ColumnFlowData::headerToCsvLine(char* csvLine, size_t size){
 ColumnFlowData::ColumnFlowData()
   : DataBase()
 {
-  height = 0.0f;
-  flux = 0.0f;
+  height = std::numeric_limits<float>::quiet_NaN();
+  flux = std::numeric_limits<float>::quiet_NaN();
   pump_in = 0;
   pump_out = 0;
 }
 
 char* ColumnFlowData::dataToCsvLine(char* csvLine, size_t size) const
 {
+  // Serial.println("ColumnFlowData::dataToCsvLine");
   const char * dt = datetime.timestamp().c_str();
   snprintf(csvLine, size,
           "%s%s"    // datetime
-          "%.3f%s"  // height
-          "%.3f%s"  // flux
+          "%.2f%s"  // height
+          "%.2f%s"  // flux
           "%d%s"    // pump in
-          "%d%s",    // pump out
+          "%d\n", // valve out
           dt, delimiter,
           height, delimiter,
           flux, delimiter,
           pump_in, delimiter,
-          pump_out, delimiter);
+          pump_out);
   return csvLine;
 }
 
@@ -78,10 +79,10 @@ char* ColumnFlowData::print(char* msg_buf, size_t size) const
 {
   snprintf(msg_buf,  size,
           "%s   "
-          "Height %.3f, " // wind direction
-          "Flux %.3f, "   // wind speed
-          "PumpIn %d,  "  // raingauge
-          "PumpOut %d",   // humidity
+          "Height %.2f, " // height
+          "Flux %.2f, "   // flux
+          "PumpIn %d, "   // pump in
+          "PumpOut %d",   // valve out
           datetime.timestamp().c_str(),
           height,
           flux,

@@ -49,6 +49,7 @@ Every timer_L4(timer_L4_period*1000);     // watchdog timer
 // I2C address 0x68
 #include "clock.h"
 Clock rtc_clock;
+DateTime dt_now;
 
 /************************************************ FLOW *************************************************/
 #include "column_flow_data.h"
@@ -59,7 +60,6 @@ WaterHeightSensor whs(5, 30, 220, 0.05, 3.13);  // pin, minH, maxH, minV, maxV
 
 bool start_valve_out = false;
 bool valve_out_open = false;
-bool pump_out_finished = true;
 
 Timer timer_outflow(15*1000, false);    // time for pumping water out
 const float H_limit = 200;              // [mm] limit water height to release
@@ -211,12 +211,17 @@ char data_teros31_filenames[n_teros31_sensors][max_filepath_length] = {"teros31_
 uint8_t teros31_iss = 0;  // current sensor reading
 bool teros31_all_finished = false;
 
+
 /****************************************** DATA COLLECTION ******************************************/
 
 
 void read_water_height()
 {
-  float height = 0.123; // TODO: read height from ultrasound
+  // read water height
+  float voltage;
+  float height = whs.read(&voltage);
+  Serial.printf("Voltage: %.2f    Height: %.2f\n", voltage, height);
+
   H_window[n_H_collected] = height;
   n_H_collected++;
   if(n_H_collected == n_H_avg)
@@ -225,25 +230,24 @@ void read_water_height()
   // check height limit, possibly run pump out
   if(height >= H_limit)
   {
-    timer_outflow.reset();
-    pump_out_finished = false;
-    digitalWrite(VALVE_OUT_PIN, HIGH);
-    // reset window
+    start_valve_out = true; // open valve (once at a time)
     n_H_collected = 0;
     n_H_collected_start = 0;
-    previous_height = 0;
+    previous_height = std::numeric_limits<float>::quiet_NaN();
   }
 
   ColumnFlowData data;
+  data.datetime = dt_now;
   data.pump_in = !pump_in_finished;   // is pump running?
-  data.pump_out = !pump_out_finished; // is pump running?
+  data.pump_out = valve_out_open;     // is valve open?
 
-  if(n_H_collected_start < n_H_avg)
+  if(valve_out_open){
+    // safe NaN during outflow
+  }
+  else if(n_H_collected_start < n_H_avg)
   {
     n_H_collected_start++;
     // safe NaN until window is filled
-    data.height = std::numeric_limits<float>::quiet_NaN();
-    data.flux = std::numeric_limits<float>::quiet_NaN();
   }
   else
   {
@@ -254,6 +258,7 @@ void read_water_height()
       H_avg += H_window[i];
     }
     H_avg /= n_H_avg;
+    // Serial.printf("H avg = %f\n", H_avg);
     data.height = H_avg;
     // flux is difference of heights
     data.flux = (previous_height - H_avg) / timer_L1_period;
@@ -261,7 +266,13 @@ void read_water_height()
   }
 
   // write data
-  CSVHandler::appendData(data_pr2_filenames[iss], &data);
+  CSVHandler::appendData(data_flow_filename, &data);
+
+  // #ifdef TEST
+  //   // TEST read data from CSV
+  //   Serial.println("Flow data read");
+  //   CSVHandler::printFile(data_flow_filename);
+  // #endif
 }
 
 // compute statistics over the fine meteo data
@@ -520,14 +531,13 @@ void setup() {
   }
   // while(1){delay(1000);}
 
-
-  // // Data files setup
-  // char csvLine[400];
-  // // flow data file
-  // const char* flow_dir="flow";
-  // CSVHandler::createFile(data_flow_filename,
-  //                        ColumnFlowData::headerToCsvLine(csvLine, max_csvline_length),
-  //                        dt, flow_dir);
+  // Data files setup
+  char csvLine[400];
+  // flow data file
+  const char* flow_dir="flow";
+  CSVHandler::createFile(data_flow_filename,
+                         ColumnFlowData::headerToCsvLine(csvLine, max_csvline_length),
+                         dt, flow_dir);
   // // PR2 data file
   // const char* pr2_dir="pr2_sensor";
   // CSVHandler::createFile(data_pr2_filename,
@@ -567,42 +577,6 @@ void print_setup_summary(String summary)
   Logger::print("HLAVO station is running");
 }
 
-
-void scan_I2C()
-{
-  byte error, address;
-  int nDevices;
-  Serial.println("Scanning...");
-  nDevices = 0;
-  for(address = 1; address < 127; address++ ) {
-    Wire.beginTransmission(address);
-    error = Wire.endTransmission();
-    if (error == 0) {
-      Serial.print("I2C device found at address 0x");
-      if (address<16) {
-        Serial.print("0");
-      }
-      Serial.println(address,HEX);
-      nDevices++;
-    }
-    else if (error==4) {
-      Serial.print("Unknow error at address 0x");
-      if (address<16) {
-        Serial.print("0");
-      }
-      Serial.println(address,HEX);
-    }    
-  }
-  if (nDevices == 0) {
-    Serial.println("No I2C devices found\n");
-  }
-  else {
-    Serial.println("done\n");
-  }
-  delay(5000);
-}
-
-
 void measureBME280()
 {
   // Serial.print("Humidity: ");
@@ -619,6 +593,9 @@ void measureBME280()
   Serial.printf("Humidity: %.0f, Pressure: %.0f, Temperature: %.2f\n", measurements.humidity, measurements.pressure, measurements.temperature);
 }
 
+// Runs every loop
+// Checks the flag `start_valve_out` for output valve opening
+// Checks the timer to close the output valve
 void controlValveOut()
 {
   if(start_valve_out)
@@ -641,23 +618,14 @@ void controlValveOut()
 /*********************************************** LOOP ***********************************************/ 
 void loop() {
 
-  if(timer_L1() && !valve_out_open)
-  {
-    // read water height
-    float voltage;
-    float height = whs.read(&voltage);
-    Serial.printf("Voltage: %.2f    Height: %.2f\n", voltage, height);
-    start_valve_out = height >= H_limit;  // open valve (once at a time)
-  }
-  controlValveOut();
-  return;
-
-  // read water height
   if(timer_L1())
   {
     Serial.println("        -------------------------- L1 TICK --------------------------");
+    dt_now = rtc_clock.now();
     read_water_height();
   }
+  controlValveOut();
+  return;
 
 
   // read values from PR2 sensors when reading not finished yet
