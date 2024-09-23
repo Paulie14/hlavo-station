@@ -21,6 +21,8 @@ class Teros31Reader{
   public:
     Teros31Data data;
     bool finished = false;
+    bool requested = false;
+    uint8_t n_tryouts = 0;
 
     Teros31Reader(SDI12Comm* sdi12_comm, char address);
     bool TryRequest();
@@ -40,9 +42,16 @@ bool Teros31Reader::TryRequest()
   if(!sdi12_delay_timer.running)
   {
     bool res = false;
-    _sdi12_comm->measureRequest("C", _address, &res);
-    if(res)
+    char* msg = _sdi12_comm->measureRequest("C", _address, &res);
+    if(res){
       sdi12_delay_timer.reset();
+      n_tryouts = 0;  // reset
+      requested = true;
+      // Logger::printf(Logger::INFO, "sdi12[a%c]: ", );
+    }
+    else{
+      n_tryouts++;
+    }
     return res;
   }
   return true;
@@ -50,7 +59,7 @@ bool Teros31Reader::TryRequest()
 
 void Teros31Reader::TryRead()
 {
-  if(sdi12_delay_timer())
+  if(sdi12_delay_timer.after())
   {
     char* res = _sdi12_comm->measureRead(_address, rec_values, &rec_n_values);
     // _sdi12_comm.print_values("field", rec_values, rec_n_values);
@@ -61,12 +70,17 @@ void Teros31Reader::TryRead()
       if(rec_n_values>1)
         data.temperature = rec_values[1];
       finished = true;
+      n_tryouts = 0;
     }
+    else
+      n_tryouts++;
   }
 }
 
 void Teros31Reader::Reset()
 {
+  n_tryouts = 0;
+  requested = false;
   finished = false;
   data = Teros31Data();
 }
