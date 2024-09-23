@@ -90,7 +90,12 @@ void setup() {
   // String si = sdi12_comm.requestAndReadData("0Aa!", &nbytes);  // Command to get sensor info
   // String si = sdi12_comm.requestAndReadData("1A0!", false);  // Command to get sensor info
   // Logger::print(sdi12_comm.requestAndReadData("7AA!", &nbytes));  // Command to get sensor info
-  // delay(1000);
+  // String si = sdi12_comm.requestAndReadData("0AB!", &nbytes);  // Command to get sensor info
+  // String si = sdi12_comm.requestAndReadData("0AC!", &nbytes);  // Command to get sensor info
+  delay(1000);
+
+  // while(1)
+  //   ;
 
   for(int i=0; i<n_sdi12_sensors; i++){
     String cmd = String(sdi12_addresses[i]) + "I!";
@@ -119,11 +124,13 @@ void loop() {
     delay(1000);
   }
 
-  if(!teros31_all_finished){
-    collect_and_write_Teros31();
-  }
+  // if(!teros31_all_finished){
+  //   collect_and_write_Teros31();
+  // }
 
-  if(timer_L1() && teros31_all_finished)
-    teros31_all_finished = false;
+  // if(timer_L1() && teros31_all_finished){
+  //   teros31_all_finished = false;
+  //   Serial.println("=============================================================================================");
+  // }
 
 }
