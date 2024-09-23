@@ -179,10 +179,6 @@ const uint8_t tempSensor_I2C = 0x76;
 BME280 tempSensor;
 char data_bme280_filename[max_filepath_length] = "column_atmospheric.csv";
 
-#include "BH1750.h"
-// default I2C address 0x23 (set in constructor)
-BH1750 lightMeter;
-
 /********************************************** SDI12 COMM ********************************************/
 #include "sdi12_comm.h"
 #define SDI12_DATA_PIN 4         // The pin of the SDI-12 data bus
@@ -478,17 +474,6 @@ void setup() {
 
   // Water Height sensor S18U
   whs.begin();
-
-  // BH1750 - Light
-  if(lightMeter.begin())
-  {
-    summary += " - BH1750 ready\n";
-  }
-  else
-  {
-    summary += " - BH1750 FAILED\n";
-    Logger::print("BH1750 (light) not found.", Logger::WARN);
-  }
 
   // BME280 - temperature, pressure, humidity
   tempSensor.setI2CAddress(tempSensor_I2C); // set I2C address, default 0x77
