@@ -15,6 +15,7 @@ const char* setup_interrupt = "SETUP INTERRUPTED";
 #ifdef TEST
     /** TIMERS */
     // times in milliseconds, L*... timing level
+    const int timer_L0_period = 1;      // [s] time reader
     const int timer_L1_period = 3;      // [s] read water height period
     const int timer_L2_period = 15;     // [s] date reading timer - PR2
     const int timer_L4_period = 10*60;  // [s] watchdog timer - 10 min
@@ -22,12 +23,14 @@ const char* setup_interrupt = "SETUP INTERRUPTED";
 #else
     /** TIMERS */
     // times in milliseconds, L*... timing level
+    const int timer_L0_period = 1;        // [s] time reader
     const int timer_L1_period = 30;       // [s] read water height period
     const int timer_L2_period = 5*60;     // [s] date reading timer - PR2
     const int timer_L4_period = 24*3600;  // [s] watchdog timer - 24 h
     #define VERBOSE 1
 #endif
 
+Every timer_L0(timer_L0_period*1000);     // time reader
 Every timer_L1(timer_L1_period*1000);     // read water height timer
 Every timer_L2(timer_L2_period*1000);     // date reading timer - PR2
 Every timer_L4(timer_L4_period*1000);     // watchdog timer
@@ -183,7 +186,7 @@ BH1750 lightMeter;
 #include "sdi12_comm.h"
 #define SDI12_DATA_PIN 4         // The pin of the SDI-12 data bus
 
-SDI12Comm sdi12_comm(SDI12_DATA_PIN, 0);  // (data_pin, verbose)
+SDI12Comm sdi12_comm(SDI12_DATA_PIN, 1);  // (data_pin, verbose)
 
 /********************************************* PR2 SENSORS ********************************************/
 #include "pr2_data.h"
@@ -200,7 +203,7 @@ bool pr2_all_finished = false;
 #include "teros31_data.h"
 #include "teros31_reader.h"
 const uint8_t n_teros31_sensors = 3;
-const char teros31_addresses[n_teros31_sensors] = {'A','B','C'};  // sensor addresses on SDI-12
+const char teros31_addresses[n_teros31_sensors] = {'A','B','C'};  // sensor addresses on SDI-12, 942, 948, 947
 
 Teros31Reader teros31_readers[3] = {
   Teros31Reader(&sdi12_comm, teros31_addresses[0]),
@@ -261,6 +264,7 @@ void read_water_height()
     // Serial.printf("H avg = %f\n", H_avg);
     data.height = H_avg;
     // flux is difference of heights
+    //TODO multiply by cross-section
     data.flux = (previous_height - H_avg) / timer_L1_period;
     previous_height = H_avg;
   }
@@ -300,7 +304,7 @@ void meteo_data_collect()
   //     fineDataBuffer[0][i], fineDataBuffer[1][i]);
   // }
 
-  DateTime dt = rtc_clock.now();
+  // DateTime dt = rtc_clock.now();
   // Serial.printf("    DateTime: %s. Buffering MeteoData.\n", dt.timestamp().c_str());
 
   // MeteoData &data = meteoDataBuffer[num_meteo_data_collected];
@@ -353,8 +357,7 @@ void collect_and_write_PR2()
   pr2_reader.TryRead();
   if(pr2_reader.finished)
   {
-    // DateTime dt = rtc_clock.now();
-    // pr2_reader.data.datetime = dt;
+    pr2_reader.data.datetime = dt_now;
     // if(VERBOSE >= 1)
     {
       // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_address);
@@ -362,8 +365,8 @@ void collect_and_write_PR2()
       hlavo::SerialPrintf(sizeof(msg)+20, "PR2[%c]: %s\n",pr2_address, pr2_reader.data.print(msg, sizeof(msg)));
     }
 
-    Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
-    CSVHandler::appendData(data_pr2_filenames[iss], &(pr2_readers[iss].data));
+    // Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
+    CSVHandler::appendData(data_pr2_filename, &(pr2_reader.data));
 
     pr2_reader.Reset();
     pr2_all_finished = true;
@@ -374,23 +377,37 @@ void collect_and_write_PR2()
 // minimize delays so that it does not block main loop
 void collect_and_write_Teros31()
 {
-  bool res = false;
-  res = teros31_readers[teros31_iss].TryRequest();
-  if(!res)  // failed request
-  {
-    teros31_readers[teros31_iss].Reset();
-    teros31_iss++;
+  const uint8_t sdelay = 100;
+  const uint8_t stryouts = 20;
 
-    if(teros31_iss >= n_teros31_sensors)
-      teros31_iss = 0;
-    return;
+  if(!teros31_readers[teros31_iss].requested)
+  {
+    bool res = false;
+    res = teros31_readers[teros31_iss].TryRequest();
+    if(!res)  // failed request
+    {
+      if(teros31_readers[teros31_iss].n_tryouts <= stryouts)
+      {
+        delay(sdelay);
+        return;
+      }
+      Logger::printf(Logger::ERROR, "Teros31 [a%c], request failed.", teros31_addresses[teros31_iss]);
+
+      teros31_readers[teros31_iss].Reset();
+      teros31_iss++;
+
+      if(teros31_iss == n_teros31_sensors){
+        teros31_iss = 0;
+        teros31_all_finished = true;
+      }
+      return;
+    }
   }
 
   teros31_readers[teros31_iss].TryRead();
   if(teros31_readers[teros31_iss].finished)
   {
-    // DateTime dt = rtc_clock.now();
-    // pr2_readers[teros31_iss].data.datetime = dt;
+    teros31_readers[teros31_iss].data.datetime = dt_now;
     // if(VERBOSE >= 1)
     {
       // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[teros31_iss]);
@@ -399,7 +416,7 @@ void collect_and_write_Teros31()
     }
 
     // Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
-    // CSVHandler::appendData(data_spi_filenames[teros31_iss], &(pr2_readers[teros31_iss].data));
+    CSVHandler::appendData(data_teros31_filenames[teros31_iss], &(teros31_readers[teros31_iss].data));
 
     teros31_readers[teros31_iss].Reset();
     teros31_iss++;
@@ -407,6 +424,23 @@ void collect_and_write_Teros31()
     {
       teros31_iss = 0;
       teros31_all_finished = true;
+    }
+  }
+  else{
+    if(teros31_readers[teros31_iss].n_tryouts <= stryouts)
+    {
+      delay(sdelay);
+      return;
+    }
+    else{
+      Logger::printf(Logger::ERROR, "Teros31 [a%c], read failed.", teros31_addresses[teros31_iss]);
+      teros31_readers[teros31_iss].Reset();
+      teros31_iss++;
+      if(teros31_iss == n_teros31_sensors)
+      {
+        teros31_iss = 0;
+        teros31_all_finished = true;
+      }
     }
   }
 }
@@ -462,7 +496,7 @@ void setup() {
     Serial.println(setup_interrupt);
     while(1){delay(1000);}
   }
-  DateTime dt = rtc_clock.now();
+  dt_now = rtc_clock.now();
 
 // SD card setup
   pinMode(SD_CS_PIN, OUTPUT);
@@ -476,7 +510,7 @@ void setup() {
       Serial.println(setup_interrupt);
       while(1){delay(1000);}
   }
-  Logger::setup_log(rtc_clock, "logs");
+  // Logger::setup_log(rtc_clock, "logs");
   Logger::print("Log set up.");
 
   // Water Height sensor S18U
@@ -537,20 +571,20 @@ void setup() {
   const char* flow_dir="flow";
   CSVHandler::createFile(data_flow_filename,
                          ColumnFlowData::headerToCsvLine(csvLine, max_csvline_length),
-                         dt, flow_dir);
-  // // PR2 data file
-  // const char* pr2_dir="pr2_sensor";
-  // CSVHandler::createFile(data_pr2_filename,
-  //                        PR2Data::headerToCsvLine(csvLine, max_csvline_length),
-  //                        dt, pr2_dir);
-  // // Teros31 data files
-  // for(int i=0; i<n_teros31_sensors; i++){
-  //   char teros31_dir[20];
-  //   sprintf(teros31_dir, "teros31_sensor_%d", i);
-  //   CSVHandler::createFile(data_teros31_filenames[i],
-  //                          Teros31Data::headerToCsvLine(csvLine, max_csvline_length),
-  //                          dt, teros31_dir);
-  // }
+                         dt_now, flow_dir);
+  // PR2 data file
+  const char* pr2_dir="pr2_sensor";
+  CSVHandler::createFile(data_pr2_filename,
+                         PR2Data::headerToCsvLine(csvLine, max_csvline_length),
+                         dt_now, pr2_dir);
+  // Teros31 data files
+  for(int i=0; i<n_teros31_sensors; i++){
+    char teros31_dir[20];
+    sprintf(teros31_dir, "teros31_sensor_%d", i);
+    CSVHandler::createFile(data_teros31_filenames[i],
+                           Teros31Data::headerToCsvLine(csvLine, max_csvline_length),
+                           dt_now, teros31_dir);
+  }
 
   for(int i=0; i<2; i++)
     rain_regimes[i].compute_trigger();
@@ -618,53 +652,39 @@ void controlValveOut()
 /*********************************************** LOOP ***********************************************/ 
 void loop() {
 
+  if(timer_L0()){
+    dt_now = rtc_clock.now();
+  }
+
   if(timer_L1())
   {
     Serial.println("        -------------------------- L1 TICK --------------------------");
-    dt_now = rtc_clock.now();
     read_water_height();
   }
   controlValveOut();
-  return;
 
 
-  // read values from PR2 sensors when reading not finished yet
+  // read values from PR2 and Teros31 sensors when reading not finished yet
   // and write to a file when last values received
-  if(!pr2_all_finished && timer_PR2_power.after())
+  if(!pr2_all_finished)
     collect_and_write_PR2();
+  else if(!teros31_all_finished){
+    collect_and_write_Teros31();
+  }
 
-  // request reading from PR2 sensors
-  // and write Meteo Data buffer to a file
   if(timer_L2())
   {
     Serial.println("-------------------------- L2 TICK --------------------------");
-    Logger::print("L2 TICK");
-    
-    Serial.println(rtc_clock.now().timestamp().c_str());
-
-    float light_lux = lightMeter.readLightLevel();
-    Serial.print("Light: ");
-    Serial.println(light_lux);
 
     measureBME280();
 
-
-    meteo_data_write();
-
-    pr2_all_finished = false;
-    // Serial.println("PR2 power on.");
-    digitalWrite(PR2_POWER_PIN, HIGH);  // turn on power for PR2
-    timer_PR2_power.reset();
-
-    #ifdef TEST
-      // TEST read data from CSV
-      // CSVHandler::printFile(data_meteo_filename);
-      // for(int i=0; i<n_pr2_sensors; i++){
-      //   CSVHandler::printFile(data_pr2_filenames[i]);
-      // }
-    #endif
+    if(teros31_all_finished && pr2_all_finished){
+      pr2_all_finished = false;
+      teros31_all_finished = false;
+    }
   }
 
+  return;
   // if(timer_L4())
   // {
   //   Serial.println("-------------------------- L4 TICK --------------------------");
