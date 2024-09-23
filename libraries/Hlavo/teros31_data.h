@@ -21,6 +21,9 @@ class Teros31Data : public DataBase{
 
 
 char* Teros31Data::headerToCsvLine(char* csvLine, size_t size) {
+
+  csvLine[0] = '\0'; // Initialize the CSV line as an empty string
+  
   strcat_safe(csvLine, size, "DateTime");
   strcat_safe(csvLine, size, delimiter);
   strcat_safe(csvLine, size, "Temperature");
@@ -49,6 +52,7 @@ char* Teros31Data::dataToCsvLine(char* csvLine, size_t size) const {
   strcat_safe(csvLine, size, number);
   snprintf(number, sizeof(number), "%.4f", pressure);
   strcat_safe(csvLine, size, number);
+  strcat_safe(csvLine, size, "\n");
 
   return csvLine;
 }

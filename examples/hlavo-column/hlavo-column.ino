@@ -170,13 +170,14 @@ void loadCurrentRain() {
 #include "Adafruit_SHT4x.h"
 #include <Wire.h>  
 #include "SparkFunBME280.h"
+#include "bme280_data.h"
 // https://www.laskakit.cz/senzor-tlaku--teploty-a-vlhkosti-bme280--1m/
 // https://github.com/sparkfun/SparkFun_BME280_Arduino_Library/releases
 // https://randomnerdtutorials.com/esp32-bme280-arduino-ide-pressure-temperature-humidity/
 // set I2C address, default is 0x77, LaskaKit supplies with 0x76
 const uint8_t tempSensor_I2C = 0x76;
 BME280 tempSensor;
-
+char data_bme280_filename[max_filepath_length] = "column_atmospheric.csv";
 
 #include "BH1750.h"
 // default I2C address 0x23 (set in constructor)
@@ -277,69 +278,6 @@ void read_water_height()
   //   Serial.println("Flow data read");
   //   CSVHandler::printFile(data_flow_filename);
   // #endif
-}
-
-// compute statistics over the fine meteo data
-// and save the meteo data into buffer of MeteoData
-void meteo_data_collect()
-{
-  // sensors_event_t humidity, temp;
-  // sht4.getEvent(&humidity, &temp);
-  
-  // // should not happen
-  // if(num_fine_data_collected >= FINE_DATA_BUFSIZE)
-  // {
-  //   Logger::printf(Logger::ERROR, "Warning: Reached maximal buffer size for fine timer (%d)\n", num_fine_data_collected);
-  //   meteo_data_collect();
-  //   num_fine_data_collected = 0;
-  // }
-
-  // int i = num_fine_data_collected;
-  // fineDataBuffer[0][i] = humidity.relative_humidity;
-  // fineDataBuffer[1][i] = temp.temperature;
-
-  // if(VERBOSE >= 1)
-  // {
-  //   Serial.printf("        %d:  Hum. %.2f, Temp. %.2f\n", num_fine_data_collected,
-  //     fineDataBuffer[0][i], fineDataBuffer[1][i]);
-  // }
-
-  // DateTime dt = rtc_clock.now();
-  // Serial.printf("    DateTime: %s. Buffering MeteoData.\n", dt.timestamp().c_str());
-
-  // MeteoData &data = meteoDataBuffer[num_meteo_data_collected];
-  // data.datetime = dt;
-  // data.compute_statistics(fineDataBuffer, NUM_FINE_VALUES, num_fine_data_collected);
-
-  // if(VERBOSE >= 1)
-  // {
-  //   char msg[400];
-  //   Serial.printf("    %s\n", data.print(msg));
-  //   // data.dataToCsvLine(msg);
-  //   // Serial.println(msg);
-  // }
-
-  // write data into buffer
-  // num_meteo_data_collected++;
-
-  // start over from the beginning of buffer
-  // num_fine_data_collected = 0;
-}
-
-// write the meteo data buffer to CSV
-void meteo_data_write()
-{
-  // Fill the base class pointer array with addresses of derived class objects
-  // Logger::printf(Logger::INFO, "meteo_data_write: %d collected", num_meteo_data_collected);
-  // DataBase* dbPtr[num_meteo_data_collected];
-  // for (int i = 0; i < num_meteo_data_collected; i++) {
-  //     dbPtr[i] = &meteoDataBuffer[i];
-  // }
-
-  // Logger::print("meteo_data_write - CSVHandler::appendData");
-  // CSVHandler::appendData(data_meteo_filename, dbPtr, num_meteo_data_collected);
-  // // start over from the beginning of buffer
-  // num_meteo_data_collected = 0;
 }
 
 // use PR2 reader to request and read data from PR2
@@ -443,6 +381,31 @@ void collect_and_write_Teros31()
       }
     }
   }
+}
+
+void collect_and_write_atmospheric()
+{
+  // Serial.print("Humidity: ");
+  // Serial.print(tempSensor.readFloatHumidity(), 0);
+  // Serial.print(" Pressure: ");
+  // Serial.print(tempSensor.readFloatPressure(), 0);
+  // Serial.print(" Temp: ");
+  // Serial.print(tempSensor.readTempC(), 2);
+  // Serial.println();
+  
+  BME280_SensorMeasurements measurements;
+  tempSensor.readAllMeasurements(&measurements); // tempScale = 0 => Celsius
+
+  BME280Data data;
+  data.datetime = dt_now;
+  data.humidity = measurements.humidity;
+  data.pressure = measurements.pressure;
+  data.temperature = measurements.temperature;
+
+  // write data
+  CSVHandler::appendData(data_bme280_filename, &data);
+
+  Serial.printf("Humidity: %.0f, Pressure: %.0f, Temperature: %.2f\n", measurements.humidity, measurements.pressure, measurements.temperature);
 }
 
 /*********************************************** SETUP ***********************************************/
@@ -591,7 +554,7 @@ void setup() {
 
   delay(500);
   print_setup_summary(summary);
-  delay(5000);
+  // delay(5000);
 
   // synchronize timers after setup
   timer_L2.reset(true);
@@ -611,21 +574,6 @@ void print_setup_summary(String summary)
   Logger::print("HLAVO station is running");
 }
 
-void measureBME280()
-{
-  // Serial.print("Humidity: ");
-  // Serial.print(tempSensor.readFloatHumidity(), 0);
-  // Serial.print(" Pressure: ");
-  // Serial.print(tempSensor.readFloatPressure(), 0);
-  // Serial.print(" Temp: ");
-  // Serial.print(tempSensor.readTempC(), 2);
-  // Serial.println();
-  
-  BME280_SensorMeasurements measurements;
-  tempSensor.readAllMeasurements(&measurements); // tempScale = 0 => Celsius
-
-  Serial.printf("Humidity: %.0f, Pressure: %.0f, Temperature: %.2f\n", measurements.humidity, measurements.pressure, measurements.temperature);
-}
 
 // Runs every loop
 // Checks the flag `start_valve_out` for output valve opening
@@ -676,7 +624,7 @@ void loop() {
   {
     Serial.println("-------------------------- L2 TICK --------------------------");
 
-    measureBME280();
+    collect_and_write_atmospheric();
 
     if(teros31_all_finished && pr2_all_finished){
       pr2_all_finished = false;
@@ -684,7 +632,63 @@ void loop() {
     }
   }
 
-  return;
+  // // Serial.println("-------------------------- TICK --------------------------");
+  // uint8_t nbytes = 0;
+  // String cmd = String(pr2_address) + "I!";
+  // // Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+  // // delay(1000);
+  // if(!pr2_all_finished)
+  // {
+  //   // sdi12_comm.commandTask(cmd.c_str());
+  //   // if(!sdi12_comm.commandTaskRunning && !sdi12_comm.received)
+  //   // {
+  //   //   Serial.println("received");
+  //   //   Serial.println(sdi12_comm.getData());
+  //   //   pr2_all_finished = true;
+  //   // }
+  //   // Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+  //   char* msg = sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes);
+  //   // Logger::printHex(msg, nbytes);
+  //   // Logger::print(msg);
+  //   // delay(300);
+  //   pr2_all_finished = true;
+  // }
+  // else if(!teros31_all_finished)
+  // {
+  //     cmd = String(teros31_addresses[teros31_iss]) + "I!";
+  //     // sdi12_comm.commandTask(cmd.c_str());
+  //     // if(!sdi12_comm.commandTaskRunning && !sdi12_comm.received)
+  //     // {
+  //     //   Serial.println(sdi12_comm.getData());
+  //     //   teros31_iss++;
+  //     //   if(teros31_iss == n_teros31_sensors)
+  //     //   {
+  //     //     teros31_iss = 0;
+  //     //     teros31_all_finished = true;
+  //     //   }
+  //     // }
+
+  //     // Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+  //     char* msg = sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes);
+  //     // Logger::printHex(msg, nbytes);
+  //     // Logger::print(msg);
+      
+  //     teros31_iss++;
+  //     if(teros31_iss == n_teros31_sensors)
+  //     {
+  //       teros31_iss = 0;
+  //       teros31_all_finished = true;
+  //     }
+  //     // delay(300);
+
+  //     // for(int i=0; i<n_teros31_sensors; i++){
+  //     //   cmd = String(teros31_addresses[i]) + "I!";
+  //     //   Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
+  //     //   // sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes);
+  //     //   delay(1000);
+  //     // }
+  // }
+
   // if(timer_L4())
   // {
   //   Serial.println("-------------------------- L4 TICK --------------------------");
