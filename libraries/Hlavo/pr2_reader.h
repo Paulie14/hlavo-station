@@ -43,7 +43,7 @@ bool PR2Reader::TryRequest()
   if( ! (sdi12_delay_timer.running))
   {
     bool res = false;
-    _sdi12_comm->measureRequest(_list_of_commands[icmd], _address, &res);
+    char* msg = _sdi12_comm->measureRequest(_list_of_commands[icmd], _address, &res);
     if(res)
     {
       sdi12_delay_timer.reset();
@@ -57,7 +57,7 @@ bool PR2Reader::TryRequest()
 void PR2Reader::TryRead()
 {
   // Logger::printf(Logger::INFO, "PR2Reader::TryRead %d %d", sdi12_delay_timer.interval, sdi12_delay_timer.running);
-  if(sdi12_delay_timer())
+  if(sdi12_delay_timer.after())
   {
     // Logger::print("PR2Reader::TryRead timer finished");
     char* res = _sdi12_comm->measureRead(_address, rec_values, &rec_n_values);

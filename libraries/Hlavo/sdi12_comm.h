@@ -171,8 +171,8 @@ char* SDI12Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
   delay(20);
 
   _SDI12.sendCommand(command, extra_wake_delay); // Send the SDI-12 command
-  delay(100);                   // Wait for response to be ready
-  Logger::printf(Logger::INFO, "Command: '%s'\n", command);
+  delay(20);                   // Wait for response to be ready
+  // Logger::printf(Logger::INFO, "Command: '%s'\n", command);
 
   uint8_t counter = 0;
   //Read the response from the sensor
@@ -182,15 +182,16 @@ char* SDI12Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
     _msg_buf[counter] = c;      // Append the character to the response string
     counter++;
 
-    if(_verbose > 1){
+    if(_verbose > 0){
       Serial.print(c, HEX); Serial.print(" ");
     }
     if(counter >= max_msg_length)
     {
-      Logger::print("PR2Comm::requestAndReadData Max length reached!", Logger::ERROR);
+      if(_verbose > 1)
+        Logger::print("sdi12::requestAndReadData Max length reached!", Logger::ERROR);
       break;
     }
-    delay(10);  // otherwise it would leave some chars to next message...
+    delay(8);  // otherwise it would leave some chars to next message...
   }
   _SDI12.forceHold();
 
@@ -198,15 +199,17 @@ char* SDI12Comm::requestAndReadData(const char* command, uint8_t* n_bytes) {
 
   if(counter>0)
   {
-    if(_verbose > 1)
+    if(_verbose > 0)
       Serial.println("");
-    Logger::printHex(_msg_buf, counter);
+    // Logger::printHex(_msg_buf, counter);
+    Logger::printf(Logger::INFO, "sdi12[%s]: %s", command, _msg_buf);
   }
   else{
-    Logger::printf(Logger::ERROR, "ERROR: sdi12 [%s] - no response!\n", command);
+    if(_verbose > 1)
+      Logger::printf(Logger::ERROR, "sdi12 [%s] - no response!\n", command);
   }
 
-  if(_verbose > 0)
+  if(_verbose > 1)
   {
     // if printf not available (Arduino)
     // char string_buffer[128]; // Buffer to hold the formatted string
@@ -227,8 +230,8 @@ char* SDI12Comm::measureRequest(String measure_command, char address, bool *resu
 
   if(n_bytes != 8)
   {
-    if(n_bytes>0)
-      Logger::printf(Logger::ERROR, "ERROR: sdi12[%s] - no valid response received!\n", measure_command.c_str());
+    if(n_bytes>0 && _verbose > 1)
+      Logger::printf(Logger::ERROR, "sdi12[%s] - no valid response received!\n", measure_command.c_str());
     *result = false;
     return nullptr;
   }
@@ -257,12 +260,13 @@ char* SDI12Comm::measureRequest(String measure_command, char address, bool *resu
   {
     sdi12_delay_timer.interval = delay_time*1000;
     _n_expected = n_vals;
-    if(_verbose>0)
+    if(_verbose>1)
       hlavo::SerialPrintf(30, "_n_expected: %d, delay: %ds\n", _n_expected, delay_time);
   }
   else
   {
-    Logger::print("Invalid message received.", Logger::MessageType::ERROR);
+    if(_verbose>1)
+      Logger::print("Invalid message received.", Logger::MessageType::ERROR);
     _n_expected = 0;
     return _msg_buf;
   }
@@ -280,7 +284,8 @@ char* SDI12Comm::measureRead(char address, float* values, uint8_t* n_values)
 
   if(n_bytes <= 5)
   {
-    Logger::printf(Logger::ERROR, "ERROR: sdi12[%s] - no valid response received!\n", data_command.c_str());
+    if(_verbose > 1)
+      Logger::printf(Logger::ERROR, "sdi12[%s] - no valid response received!\n", data_command.c_str());
     *n_values = 0;
     return nullptr;
   }
@@ -298,7 +303,8 @@ char* SDI12Comm::measureRead(char address, float* values, uint8_t* n_values)
 
   if(! res)
   {
-    Logger::print("Invalid message received.", Logger::MessageType::ERROR);
+    if(_verbose > 1)
+      Logger::print("Invalid message received.", Logger::MessageType::ERROR);
     *n_values = 0;
     return _msg_buf;
   }
