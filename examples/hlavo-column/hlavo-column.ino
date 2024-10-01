@@ -24,7 +24,7 @@ const char* setup_interrupt = "SETUP INTERRUPTED";
     /** TIMERS */
     // times in milliseconds, L*... timing level
     const int timer_L0_period = 1;        // [s] time reader
-    const int timer_L1_period = 30;       // [s] read water height period
+    const int timer_L1_period = 3;        // [s] read water height period
     const int timer_L2_period = 5*60;     // [s] date reading timer - PR2
     const int timer_L4_period = 24*3600;  // [s] watchdog timer - 24 h
     #define VERBOSE 1
@@ -34,6 +34,12 @@ Every timer_L0(timer_L0_period*1000);     // time reader
 Every timer_L1(timer_L1_period*1000);     // read water height timer
 Every timer_L2(timer_L2_period*1000);     // date reading timer - PR2
 Every timer_L4(timer_L4_period*1000);     // watchdog timer
+
+
+Every timer_rain_start(60*60*1000);         // every T start rain
+Timer timer_rain_length(55*1000, false);    // length of rain
+int rain_n_cycles = 0;                      // current number of rains
+const int rain_max_n_cycles = 20;           // max number of rains
 
 
 /*********************************************** SD CARD ***********************************************/
@@ -78,7 +84,7 @@ char data_flow_filename[max_filepath_length] = "column_flow.csv";
 
 
 /************************************************ RAIN *************************************************/
-#define PUMP_IN_PIN 20
+#define PUMP_IN_PIN 6
 bool pump_in_finished = true;
 Timer timer_rain(1000, false);    // timer for rain
 uint8_t current_rain_idx = 0;
@@ -94,14 +100,16 @@ class RainRegime{
     float length; // [h]
     float period; // [h]
 
-    uint8_t trigger_length;
-    uint8_t trigger_period;
+    int trigger_length;
+    int trigger_period;
 
     DateTime last_rain;
 
+    // [mm/h], [h], [h]
     RainRegime(float rate, float length, float period)
     : rate(rate), length(length), period(period)
     {
+      last_rain = DateTime((uint32_t)0);
     }
 
     void compute_trigger()
@@ -113,9 +121,16 @@ class RainRegime{
       Logger::printf(Logger::INFO, "Ratio: %g\n", ratio);
       float Tmin = 1.0;
       float Tmax = 3600.0*length/10.0;
+      Logger::printf(Logger::INFO, "Tmax: %g\n", Tmax);
+      // Logger::printf(Logger::INFO, "(Tmin+Tmax)/2: %g\n", (Tmin+Tmax)/2);
+      // Logger::printf(Logger::INFO, "(Tmin+Tmax)/2: %g\n", std::round((Tmin+Tmax)/2));
+      // Logger::printf(Logger::INFO, "(Tmin+Tmax)/2: %d\n", (int)std::round((Tmin+Tmax)/2));
+      // Logger::printf(Logger::INFO, "(Tmin+Tmax)/2: %d\n", (u_int8_t)std::round((Tmin+Tmax)/2));
 
-      trigger_period = std::round((Tmin+Tmax)/2);
-      trigger_length = std::round(trigger_period * ratio);
+      trigger_period = (int)std::round((Tmin+Tmax)/2);
+
+      Logger::printf(Logger::INFO, "trigger_period * ratio: %g\n", trigger_period * ratio);
+      trigger_length = (int)std::round(trigger_period * ratio);
 
       Logger::printf(Logger::INFO, "Pump lenght: %d  Pump period: %d\n", trigger_length, trigger_period);
     }
@@ -163,6 +178,32 @@ void loadCurrentRain() {
         rain_regimes[current_rain_idx].last_rain = dt;
   }
   file.close();
+}
+
+void controlRain()
+{
+  if(timer_rain.after())
+  {
+    // stop raining
+    // ...
+
+
+  }
+
+  uint8_t n_rain_regimes = sizeof(rain_regimes);
+
+  for(int i=0; i<n_rain_regimes; i++)
+  {
+    DateTime next_rain = rain_regimes[i].last_rain + rain_regimes[i].period;
+
+    // TimeSpan ts = (dt_now - rain_regimes[i].last_rain);
+    // TimeSpan per = TimeSpan(3600*rain_regimes[i].period);
+
+    if(next_rain >= dt_now)
+    {
+      timer_rain.reset(rain_regimes[i].trigger_length);
+    }
+  }
 }
 
 
@@ -427,7 +468,7 @@ void setup() {
   digitalWrite(VALVE_OUT_PIN, HIGH);
   summary += " - VALVE OUT OFF (" +  String(VALVE_OUT_PIN) + " on)\n";
   pinMode(PUMP_IN_PIN, OUTPUT);
-  digitalWrite(PUMP_IN_PIN, LOW);
+  digitalWrite(PUMP_IN_PIN, HIGH);
   summary += " - PUMP IN OFF (" +  String(PUMP_IN_PIN) + " off)\n";
 
   // I2C setup
@@ -553,6 +594,7 @@ void setup() {
   timer_L2.reset(true);
   timer_L1.reset(true);
   timer_L4.reset(false);
+  timer_rain_start.reset(true);
 }
 
 void print_setup_summary(String summary)
@@ -590,8 +632,35 @@ void controlValveOut()
   }
 }
 
+
+// Overnight full saturation rain
+void saturation_rain()
+{
+  if(rain_n_cycles < rain_max_n_cycles
+    && timer_rain_start())
+  {
+    // start rain
+    digitalWrite(PUMP_IN_PIN, LOW);
+    Serial.printf("rain ON\n");
+    Serial.printf("rain counter %d of %d\n", rain_n_cycles, rain_max_n_cycles);
+    timer_rain_length.reset();
+    pump_in_finished = false;
+    rain_n_cycles++;
+  }
+  if(!pump_in_finished && timer_rain_length.after())
+  {
+    // stop rain
+    digitalWrite(PUMP_IN_PIN, HIGH);
+    Serial.printf("rain OFF\n");
+    Serial.printf("rain counter %d of %d\n", rain_n_cycles, rain_max_n_cycles);
+    pump_in_finished = true;
+  }
+}
+
 /*********************************************** LOOP ***********************************************/ 
 void loop() {
+
+  // saturation_rain();
 
   if(timer_L0()){
     dt_now = rtc_clock.now();
