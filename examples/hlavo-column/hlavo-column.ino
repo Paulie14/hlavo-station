@@ -64,7 +64,7 @@ WaterHeightSensor whs(5, 30, 220, 0.05, 3.13);  // pin, minH, maxH, minV, maxV
 bool start_valve_out = false;
 bool valve_out_open = false;
 
-Timer timer_outflow(15*1000, false);    // time for pumping water out
+Timer timer_outflow(45*1000, false);    // time for pumping water out
 const float H_limit = 200;              // [mm] limit water height to release
 const uint8_t n_H_avg = 5;              // number of flow samples to average
 
@@ -200,7 +200,7 @@ bool pr2_all_finished = false;
 #include "teros31_data.h"
 #include "teros31_reader.h"
 const uint8_t n_teros31_sensors = 3;
-const char teros31_addresses[n_teros31_sensors] = {'A','B','C'};  // sensor addresses on SDI-12, 942, 948, 947
+const char teros31_addresses[n_teros31_sensors] = {'A','B','C'};  // sensor addresses on SDI-12, 942, 947, 948
 
 Teros31Reader teros31_readers[3] = {
   Teros31Reader(&sdi12_comm, teros31_addresses[0]),
@@ -520,6 +520,11 @@ void setup() {
   CSVHandler::createFile(data_flow_filename,
                          ColumnFlowData::headerToCsvLine(csvLine, max_csvline_length),
                          dt_now, flow_dir);
+  
+  const char* atm_dir="atmospheric";
+  CSVHandler::createFile(data_bme280_filename,
+                         BME280Data::headerToCsvLine(csvLine, max_csvline_length),
+                         dt_now, atm_dir);
   // PR2 data file
   const char* pr2_dir="pr2_sensor";
   CSVHandler::createFile(data_pr2_filename,
@@ -536,6 +541,9 @@ void setup() {
 
   for(int i=0; i<2; i++)
     rain_regimes[i].compute_trigger();
+
+  // while(1)
+  //   ;
 
   delay(500);
   print_setup_summary(summary);
@@ -674,12 +682,12 @@ void loop() {
   //     // }
   // }
 
-  // if(timer_L4())
-  // {
-  //   Serial.println("-------------------------- L4 TICK --------------------------");
-  //   Logger::print("L4 TICK - Reboot");
-  //   Serial.printf("\nReboot...\n\n");
-  //   delay(250);
-  //   ESP.restart();
-  // }
+  if(timer_L4())
+  {
+    Serial.println("-------------------------- L4 TICK --------------------------");
+    Logger::print("L4 TICK - Reboot");
+    Serial.printf("\nReboot...\n\n");
+    delay(250);
+    ESP.restart();
+  }
 }
