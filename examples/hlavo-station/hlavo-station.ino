@@ -90,9 +90,9 @@ void IRAM_ATTR intPeriod() { weather.intTimer(); }
 
 #define PR2_POWER_PIN 7        // The pin PR2 power
 #define PR2_DATA_PIN 4         // The pin of the SDI-12 data bus
-SDI12Comm sdi12_comm(PR2_DATA_PIN, 0);  // (data_pin, verbose)
+SDI12Comm sdi12_comm(PR2_DATA_PIN, 1);  // (data_pin, verbose)
 const uint8_t n_pr2_sensors = 2;
-const uint8_t pr2_addresses[n_pr2_sensors] = {0,1};  // sensor addresses on SDI-12
+const char pr2_addresses[n_pr2_sensors] = {'0','1'};  // sensor addresses on SDI-12
 PR2Reader pr2_readers[2] = {        // readers enable reading all sensors without blocking loop
   PR2Reader(&sdi12_comm, pr2_addresses[0]),
   PR2Reader(&sdi12_comm, pr2_addresses[1])
