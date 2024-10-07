@@ -404,7 +404,7 @@ void loop() {
   // read values to buffer at fine time scale [fine Meteo Data]
   if(timer_L1())
   {
-    Serial.println("        -------------------------- L1 TICK --------------------------");
+    Serial.printf("        -------------------------- L1 TICK -------------------------- till L3: %d s\n", (timer_L3.interval + timer_L3.last - millis())/1000);
     fine_data_collect();
   }
 
