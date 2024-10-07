@@ -196,7 +196,7 @@ void meteo_data_collect()
 void meteo_data_write()
 {
   // Fill the base class pointer array with addresses of derived class objects
-  Logger::printf(Logger::INFO, "meteo_data_write: %d collected", num_meteo_data_collected);
+  Logger::printf(Logger::INFO, "meteo_data_write: %d collected\n", num_meteo_data_collected);
   DataBase* dbPtr[num_meteo_data_collected];
   for (int i = 0; i < num_meteo_data_collected; i++) {
       dbPtr[i] = &meteoDataBuffer[i];
@@ -229,14 +229,13 @@ void collect_and_write_PR2()
   {
     DateTime dt = rtc_clock.now();
     pr2_readers[iss].data.datetime = dt;
-    if(VERBOSE >= 1)
+    // if(VERBOSE >= 1)
     {
-      // Serial.printf("DateTime: %s. Writing PR2Data[a%d].\n", dt.timestamp().c_str(), pr2_addresses[iss]);
       char msg[400];
-      Serial.printf("PR2[a%d]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg, sizeof(msg)));
+      hlavo::SerialPrintf(sizeof(msg)+20, "PR2[%c]: %s\n",pr2_addresses[iss], pr2_readers[iss].data.print(msg, sizeof(msg)));
     }
 
-    Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
+    // Logger::print("collect_and_write_PR2 - CSVHandler::appendData");
     CSVHandler::appendData(data_pr2_filenames[iss], &(pr2_readers[iss].data));
 
     pr2_readers[iss].Reset();
@@ -309,7 +308,7 @@ void setup() {
       while(1){delay(1000);}
   }
   Logger::setup_log(rtc_clock, "logs");
-  Serial.println("Log set up.");
+  // Serial.println("Log set up.");
   Logger::print("Log set up.");
 
   // weather station
@@ -391,7 +390,8 @@ void print_setup_summary(String summary)
   summary += F("INO file: " __FILE__ " " __DATE__ " " __TIME__ "\n\n");
   summary += "=======================================================================";
 
-  Logger::print(summary);
+  Serial.print(summary); Serial.println("");
+  // Logger::print(summary);
   Logger::print("HLAVO station is running");
 }
 
