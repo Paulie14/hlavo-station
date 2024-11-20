@@ -42,7 +42,10 @@ def read_data(file_pattern, dt_column='DateTime', sep=';'):
     merged_df = merged_df.dropna(subset=[dt_column])
 
     float_columns = merged_df.columns.drop(dt_column)
-    merged_df[float_columns] = merged_df[float_columns].astype(float)
+    # merged_df[float_columns] = merged_df[float_columns].astype(float)
+    merged_df[float_columns] = merged_df[float_columns].apply(pd.to_numeric, errors='coerce')
+    # Drop rows with NaN values in float columns if necessary
+    merged_df = merged_df.dropna(subset=float_columns)
 
     # Sort the DataFrame by DateTime and drop NaT rows
     merged_df = merged_df.sort_values(by=dt_column).dropna()
@@ -222,7 +225,7 @@ fig.savefig('meteo_data.pdf', format='pdf')
 # PR2 - a1 - s Oddyssey U04 pod stromy
 odyssey_data = read_odyssey_data(filter=False)
 odyssey_names = [f"U0{i+1}" for i in range(4)]
-for i in [0,3]:
+for i in [0,1,2,3]:
     fig, ax = plt.subplots(figsize=(10, 6))
     plot_columns(ax, odyssey_data[i], columns=[f"odyssey_{i}" for i in range(5)])
     ax.set_title(f"Odyssey{odyssey_names[i]} - Soil Moisture Mineral")
