@@ -2,9 +2,44 @@ import os
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
+from datetime import datetime
 
-# Define the directory structure
-base_dir = '..'
+
+def parse_datetime_column(column):
+    """
+    Parses a datetime column with varying formats into a standardized datetime object.
+
+    Args:
+        column (pd.Series): A Pandas Series containing datetime strings or timestamps.
+
+    Returns:
+        pd.Series: A Series with standardized datetime objects.
+    """
+    def detect_and_parse(value):
+        try:
+            # Format 1: "25-09-2024 08:20:00"
+            return datetime.strptime(value, '%d-%m-%Y %H:%M:%S')
+        except ValueError:
+            pass
+
+        try:
+            # Format 2: "2024-09-25T16:50:24" (ISO format)
+            return datetime.fromisoformat(value)
+        except ValueError:
+            pass
+
+        try:
+            # Format 3: Unix timestamp in milliseconds
+            timestamp = int(value)
+            return pd.to_datetime(timestamp, unit='ms')
+        except (ValueError, OverflowError):
+            pass
+
+        # If all parsing attempts fail, return NaT
+        return pd.NaT
+
+    # Apply detection and parsing to the entire column
+    return column.apply(detect_and_parse)
 
 
 def read_data(file_pattern, dt_column='DateTime', sep=';'):
@@ -29,31 +64,25 @@ def read_data(file_pattern, dt_column='DateTime', sep=';'):
     # Using errors='coerce' to convert invalid datetime entries to NaT
     # Get the first non-null value to determine the format
 
-    sample_value = merged_df[dt_column].dropna().iloc[0]
-    try:
-        int_value = int(sample_value)
-        if len(sample_value) > 10:  # Simple heuristic: if the length is greater than 10, it's probably in milliseconds
-            merged_df[dt_column] = pd.to_datetime(merged_df[dt_column], errors='coerce', unit='ms')
-    except ValueError:
-        merged_df[dt_column] = pd.to_datetime(merged_df[dt_column], errors='coerce')
-        pass
+    # Parse the datetime column
+    merged_df[dt_column] = parse_datetime_column(merged_df[dt_column])
 
     # Drop rows with NaT in 'DateTime' column
     merged_df = merged_df.dropna(subset=[dt_column])
 
     float_columns = merged_df.columns.drop(dt_column)
-    # merged_df[float_columns] = merged_df[float_columns].astype(float)
+    # when converting to floats, make NaN where invalid strings are present
     merged_df[float_columns] = merged_df[float_columns].apply(pd.to_numeric, errors='coerce')
     # Drop rows with NaN values in float columns if necessary
-    merged_df = merged_df.dropna(subset=float_columns)
+    # merged_df = merged_df.dropna(subset=float_columns)
 
-    # Sort the DataFrame by DateTime and drop NaT rows
-    merged_df = merged_df.sort_values(by=dt_column).dropna()
+    # Sort the DataFrame by DateTime
+    merged_df = merged_df.sort_values(by=dt_column)
     merged_df.set_index(dt_column, inplace=True)
     return merged_df
 
 
-def read_pr2_data(filter=False):
+def read_pr2_data(base_dir, filter=False):
     pr2_all_data = []
     # for each PR2 sensor
     for a in range(0, 2):
@@ -71,17 +100,45 @@ def read_pr2_data(filter=False):
     return pr2_all_data
 
 
-def read_odyssey_data(filter=False):
+# def read_odyssey_data(filter=False):
+#     ods_data = []
+#     # for each Odyssey sensor
+#     for a in range(0, 4):
+#         pattern = os.path.join(base_dir, 'data_odyssey', '*U0' + str(a+1) + '*.csv')
+#         data = read_data(pattern, dt_column='Date/Time', sep=',')
+#         for i in range(5):
+#             selected_column = f"sensor-{i+1} %"
+#             new_col_name = f"odyssey_{i}"
+#             data[selected_column] = data[selected_column]/100
+#             data.rename(columns={selected_column: new_col_name}, inplace=True)
+#         # FILTERING
+#         if filter:
+#             for i in range(0, 6):
+#                 selected_column = f"odyssey_{i}"
+#                 # pr2_a0_data_filtered = pr2_a0_data_filtered[(pr2_a0_data_filtered[selected_column] != 0)]
+#                 # Filter rows where a selected column is between 0 and 1
+#                 data = data[(data[selected_column] > 0.01) & (data[selected_column] <= 100)]
+#
+#         ods_data.append(data)
+#     return ods_data
+
+def read_odyssey_data(base_dir, filter=False, ids=[]):
     ods_data = []
     # for each Odyssey sensor
-    for a in range(0, 4):
-        pattern = os.path.join(base_dir, 'data_odyssey', '*U0' + str(a+1) + '*.csv')
-        data = read_data(pattern, dt_column='Date/Time', sep=',')
+    for a in ids:
+        pattern = os.path.join(base_dir, 'data_odyssey', '*U' + str(a).zfill(2) + '*.csv')
+        data = read_data(pattern, dt_column='dateTime', sep=',')
         for i in range(5):
-            selected_column = f"sensor-{i+1} %"
+            # moisture
+            selected_column = f"s{i+1}"
             new_col_name = f"odyssey_{i}"
             data[selected_column] = data[selected_column]/100
             data.rename(columns={selected_column: new_col_name}, inplace=True)
+            # temperature
+            data.rename(columns={f"s{i+1}t": f"temp_{i}"}, inplace=True)
+        # ambient temperature
+        data.rename(columns={f"s11t": f"ambient_temp"}, inplace=True)
+
         # FILTERING
         if filter:
             for i in range(0, 6):
@@ -92,7 +149,6 @@ def read_odyssey_data(filter=False):
 
         ods_data.append(data)
     return ods_data
-
 
 # Plot some columns using matplotlib
 def plot_columns(ax, df, columns):
@@ -206,79 +262,81 @@ def plot_moisture_rain_comparison(ax, df, title, start_date=None, end_date=None)
     ax2.legend(loc='upper right')
 
 
-meteo_pattern = os.path.join(base_dir, '**', 'meteo', '*.csv')
-# Set DateTime as the index
-meteo_data = read_data(meteo_pattern)
-# Resample the data to get samples at every 15 minutes
-# meteo_data_resampled = meteo_data.resample('15min').first()
-meteo_data_resampled = meteo_data.resample('15min').mean()
 
-# Example: Plot WindSpeed and Temperature_Mean
-fig, ax = plt.subplots(figsize=(10, 6))
-plot_columns(ax, meteo_data_resampled, ['Humidity_Mean', 'Temperature_Mean', 'RainGauge'])
-ax.set_title('Humidity, Temperature, RainGauge Over Time')
-# plot_columns(ax, merged_df, ['Humidity_Mean', 'Temperature_Mean'], 'Humidity and Temperature Over Time')
-fig.savefig('meteo_data.pdf', format='pdf')
+if __name__ == '__main__':
+    # Define the directory structure
+    base_dir = '..'
+    meteo_pattern = os.path.join(base_dir, '**', 'meteo', '*.csv')
+    # Set DateTime as the index
+    meteo_data = read_data(meteo_pattern)
+    # Resample the data to get samples at every 15 minutes
+    # meteo_data_resampled = meteo_data.resample('15min').first()
+    meteo_data_resampled = meteo_data.resample('15min').mean()
 
-
-# PR2 - a0 - s Oddyssey U01 u meteo stanice
-# PR2 - a1 - s Oddyssey U04 pod stromy
-odyssey_data = read_odyssey_data(filter=False)
-odyssey_names = [f"U0{i+1}" for i in range(4)]
-for i in [0,1,2,3]:
+    # Example: Plot WindSpeed and Temperature_Mean
     fig, ax = plt.subplots(figsize=(10, 6))
-    plot_columns(ax, odyssey_data[i], columns=[f"odyssey_{i}" for i in range(5)])
-    ax.set_title(f"Odyssey{odyssey_names[i]} - Soil Moisture Mineral")
-    fig.savefig(f"odyssey_data_{odyssey_names[i]}.pdf", format='pdf')
-
-pr2_data = read_pr2_data(filter=False)
-pr2_names = [f"a{i}" for i in range(2)]
-merging_dates = {'start_date': '2024-07-05', 'end_date': '2024-07-15'}
-
-# Merge the meteo and pr2 dataframes on DateTime using outer join
-pr2_data_merged_a0 = pd.merge(meteo_data, pr2_data[0], how='outer', left_index=True, right_index=True, sort=True)
-fig, ax = plt.subplots(figsize=(10, 6))
-# plot_columns(ax, pr2_a0_data_filtered, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
-# plot_columns(ax, all_data, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
-plot_moisture_rain(ax, pr2_data_merged_a0, "Rain vs Soil Moisture", **merging_dates)
-ax.set_title('Soil Moisture Mineral')
-fig.savefig('pr2_data_a0.pdf', format='pdf')
-# plt.show()
-
-# Merge the meteo and pr2 dataframes on DateTime using outer join
-pr2_data_merged_a1 = pd.merge(meteo_data, pr2_data[1], how='outer', left_index=True, right_index=True, sort=True)
-fig, ax = plt.subplots(figsize=(10, 6))
-# plot_columns(ax, pr2_a0_data_filtered, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
-# plot_columns(ax, all_data, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
-plot_moisture_rain(ax, pr2_data_merged_a1, "Rain vs Soil Moisture", **merging_dates)
-# plot_moisture_rain(ax, pr2_data_merged_a1, "Rain vs Soil Moisture")
-ax.set_title('Soil Moisture Mineral')
-fig.savefig('pr2_data_a1.pdf', format='pdf')
-# plt.show()
-
-# fig, ax = plt.subplots(figsize=(10, 6))
-# plot_columns(ax, pr2_data[0], ['SoilMoistMin_0', 'SoilMoistMin_5'])
-# plot_columns(ax, pr2_data[1], ['SoilMoistMin_0', 'SoilMoistMin_5'])
-# ax.set_title('Soil Moisture Mineral')
-# # plot_columns(ax, all_data, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
-# # plot_moisture_rain(ax, all_data, "Rain vs Soil Moisture", start_date='2024-07-05', end_date='2024-07-15')
-# # fig.savefig('pr2_data.pdf', format='pdf')
-# plt.show()
+    plot_columns(ax, meteo_data_resampled, ['Humidity_Mean', 'Temperature_Mean', 'RainGauge'])
+    ax.set_title('Humidity, Temperature, RainGauge Over Time')
+    # plot_columns(ax, merged_df, ['Humidity_Mean', 'Temperature_Mean'], 'Humidity and Temperature Over Time')
+    fig.savefig('meteo_data.pdf', format='pdf')
 
 
-# PR2 - a0 - s Oddyssey U01 u meteo stanice
-# PR2 - a1 - s Oddyssey U04 pod stromy
-# Merge PR2 and Odyssey dataframes on DateTime using outer join
-U01_data_merged = pd.merge(pr2_data_merged_a0, odyssey_data[0], how='outer', left_index=True, right_index=True, sort=True)
-fig, ax = plt.subplots(figsize=(10, 6))
-plot_moisture_rain_comparison(ax, U01_data_merged, "Rain vs Soil Moisture", **merging_dates)
-ax.set_title('Soil Moisture Mineral')
-fig.savefig('U01_data_merged.pdf', format='pdf')
+    # PR2 - a0 - s Oddyssey U01 u meteo stanice
+    # PR2 - a1 - s Oddyssey U04 pod stromy
+    odyssey_data = read_odyssey_data(base_dir, filter=False, ids=[1,2,3,4])
+    odyssey_names = [f"U0{i+1}" for i in range(4)]
+    for i in [0,1,2,3]:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        plot_columns(ax, odyssey_data[i], columns=[f"odyssey_{i}" for i in range(5)])
+        ax.set_title(f"Odyssey{odyssey_names[i]} - Soil Moisture Mineral")
+        fig.savefig(f"odyssey_data_{odyssey_names[i]}.pdf", format='pdf')
 
-U02_data_merged = pd.merge(pr2_data_merged_a1, odyssey_data[1], how='outer', left_index=True, right_index=True, sort=True)
-fig, ax = plt.subplots(figsize=(10, 6))
-plot_moisture_rain_comparison(ax, U02_data_merged, "Rain vs Soil Moisture", **merging_dates)
-ax.set_title('Soil Moisture Mineral')
-fig.savefig('U02_data_merged.pdf', format='pdf')
+    pr2_data = read_pr2_data(filter=False)
+    pr2_names = [f"a{i}" for i in range(2)]
+    merging_dates = {'start_date': '2024-07-05', 'end_date': '2024-07-15'}
+
+    # Merge the meteo and pr2 dataframes on DateTime using outer join
+    pr2_data_merged_a0 = pd.merge(meteo_data, pr2_data[0], how='outer', left_index=True, right_index=True, sort=True)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    # plot_columns(ax, pr2_a0_data_filtered, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
+    # plot_columns(ax, all_data, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
+    plot_moisture_rain(ax, pr2_data_merged_a0, "Rain vs Soil Moisture", **merging_dates)
+    ax.set_title('Soil Moisture Mineral')
+    fig.savefig('pr2_data_a0.pdf', format='pdf')
+    # plt.show()
+
+    # Merge the meteo and pr2 dataframes on DateTime using outer join
+    pr2_data_merged_a1 = pd.merge(meteo_data, pr2_data[1], how='outer', left_index=True, right_index=True, sort=True)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    # plot_columns(ax, pr2_a0_data_filtered, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
+    # plot_columns(ax, all_data, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
+    plot_moisture_rain(ax, pr2_data_merged_a1, "Rain vs Soil Moisture", **merging_dates)
+    # plot_moisture_rain(ax, pr2_data_merged_a1, "Rain vs Soil Moisture")
+    ax.set_title('Soil Moisture Mineral')
+    fig.savefig('pr2_data_a1.pdf', format='pdf')
+    # plt.show()
+
+    # fig, ax = plt.subplots(figsize=(10, 6))
+    # plot_columns(ax, pr2_data[0], ['SoilMoistMin_0', 'SoilMoistMin_5'])
+    # plot_columns(ax, pr2_data[1], ['SoilMoistMin_0', 'SoilMoistMin_5'])
+    # ax.set_title('Soil Moisture Mineral')
+    # # plot_columns(ax, all_data, ['SoilMoistMin_0', 'SoilMoistMin_5'], 'Soil Moisture Mineral')
+    # # plot_moisture_rain(ax, all_data, "Rain vs Soil Moisture", start_date='2024-07-05', end_date='2024-07-15')
+    # # fig.savefig('pr2_data.pdf', format='pdf')
+    # plt.show()
 
 
+    # PR2 - a0 - s Oddyssey U01 u meteo stanice
+    # PR2 - a1 - s Oddyssey U04 pod stromy
+    # Merge PR2 and Odyssey dataframes on DateTime using outer join
+    U01_data_merged = pd.merge(pr2_data_merged_a0, odyssey_data[0], how='outer', left_index=True, right_index=True, sort=True)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    plot_moisture_rain_comparison(ax, U01_data_merged, "Rain vs Soil Moisture", **merging_dates)
+    ax.set_title('Soil Moisture Mineral')
+    fig.savefig('U01_data_merged.pdf', format='pdf')
+
+    U02_data_merged = pd.merge(pr2_data_merged_a1, odyssey_data[1], how='outer', left_index=True, right_index=True, sort=True)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    plot_moisture_rain_comparison(ax, U02_data_merged, "Rain vs Soil Moisture", **merging_dates)
+    ax.set_title('Soil Moisture Mineral')
+    fig.savefig('U02_data_merged.pdf', format='pdf')
