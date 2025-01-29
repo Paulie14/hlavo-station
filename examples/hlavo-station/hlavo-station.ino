@@ -216,6 +216,7 @@ void collect_and_write_PR2()
   res = pr2_readers[iss].TryRequest();
   if(!res)  // failed request
   {
+    Serial.printf("TryRequest FAILED from PR2 address: %c\n", pr2_addresses[iss]);
     pr2_readers[iss].Reset();
     iss++;
 
@@ -307,9 +308,10 @@ void setup() {
       Serial.println(setup_interrupt);
       while(1){delay(1000);}
   }
-  Logger::setup_log(rtc_clock, "logs");
+  // Logger::setup_log(rtc_clock, "logs");
   // Serial.println("Log set up.");
   Logger::print("Log set up.");
+
 
   // weather station
   weather.setup(intAnemometer, intRaingauge, intPeriod);
@@ -342,24 +344,6 @@ void setup() {
     Logger::print("BH1750 (light) not found.", Logger::WARN);
   }
 
-  // PR2
-  pinMode(PR2_POWER_PIN, OUTPUT);
-  setPin(PR2_POWER_PIN, HIGH);  // turn on power for PR2
-  timer_PR2_power.reset();
-
-  delay(1000);
-  Serial.println("Opening SDI-12 for PR2...");
-  sdi12_comm.begin();
-
-  delay(1000);  // allow things to settle
-  uint8_t nbytes = 0;
-  for(int i=0; i<n_pr2_sensors; i++){
-    String cmd = String(pr2_addresses[i]) + "I!";
-    Logger::print(sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes));  // Command to get sensor info
-  }
-
-  // while(1){delay(100);}
-
   // Data files setup
   char csvLine[max_csvline_length];
   const char* meteo_dir="meteo";
@@ -376,6 +360,26 @@ void setup() {
 
   print_setup_summary(summary);
   delay(5000);
+
+  // PR2
+  pinMode(PR2_POWER_PIN, OUTPUT);
+  setPin(PR2_POWER_PIN, HIGH);  // turn on power for PR2
+  timer_PR2_power.reset();
+
+  // delay(1000);
+  Serial.println("Opening SDI-12 for PR2...");
+  sdi12_comm.begin();
+
+  delay(1000);  // allow things to settle
+  uint8_t nbytes = 0;
+  for(int i=0; i<n_pr2_sensors; i++){
+    String cmd = String(pr2_addresses[i]) + "I!";
+    sdi12_comm.requestAndReadData(cmd.c_str(), &nbytes);  // Command to get sensor info
+    delay(500);
+  }
+
+  // while(1){delay(100);}
+
 
   // synchronize timers after setup
   timer_L3.reset(true);
