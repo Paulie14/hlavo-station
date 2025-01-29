@@ -4,6 +4,42 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+def setup_plt_fontsizes():
+    SMALL_SIZE = 10
+    MEDIUM_SIZE = 12
+    BIGGER_SIZE = 14
+
+    plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
+    plt.rc('axes', titlesize=BIGGER_SIZE)  # fontsize of the axes title
+    plt.rc('axes', labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
+    # plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+def select_time_interval(df, start_date=None, end_date=None):
+    # Select data within the datetime interval
+    if start_date is not None and end_date is not None:
+        subset_df = df.loc[start_date:end_date]
+    elif start_date is not None:
+        subset_df = df.loc[start_date:]
+    elif end_date is not None:
+        subset_df = df.loc[:end_date]
+    else:
+        subset_df = df
+    return subset_df
+
+def add_start_of_days(df, ax):
+    # Add vertical lines at the start of each day
+    start_of_days = df.resample('D').mean().index
+    for day in start_of_days:
+        ax.axvline(day, color='grey', linestyle='--', linewidth=0.5)
+
+def set_date_time_axis(ax):
+    ax.set_xlabel('DateTime')
+    # Rotate the x-axis labels by 60 degrees
+    for label in ax.get_xticklabels():
+        label.set_rotation(30)
 
 def parse_datetime_column(column):
     """
@@ -151,20 +187,20 @@ def read_odyssey_data(base_dir, filter=False, ids=[]):
     return ods_data
 
 # Plot some columns using matplotlib
-def plot_columns(ax, df, columns):
+def plot_columns(ax, df, columns, ylabel='Values', startofdays=True):
     for column in columns:
         # dat = df[(df[column] > 0.01) & (df[column] < 1)]
         # ax.plot(dat.index, dat[column], label=column,
         #         marker='o', linestyle='-', markersize=2)
         ax.plot(df.index, df[column], label=column)
 
+    # plt.show()
     # Add vertical lines at the start of each day
-    start_of_days = df.resample('D').mean().index
-    for day in start_of_days:
-        ax.axvline(day, color='grey', linestyle='--', linewidth=0.5)
+    if startofdays:
+        add_start_of_days(df, ax)
 
-    ax.set_xlabel('DateTime')
-    ax.set_ylabel('Values')
+    set_date_time_axis(ax)
+    ax.set_ylabel(ylabel)
     ax.legend()
 
 
@@ -193,10 +229,7 @@ def plot_moisture_rain(ax, df, title, start_date=None, end_date=None):
         ax.plot(smoothed_dat.index, smoothed_dat[column], label=column,
                 marker='o', linestyle='-', markersize=2)
 
-    # Add vertical lines at the start of each day
-    start_of_days = interval_df.resample('D').mean().index
-    for day in start_of_days:
-        ax.axvline(day, color='grey', linestyle='--', linewidth=0.5)
+    add_start_of_days(df, ax)
 
     ax.set_xlabel('DateTime')
     ax.set_ylabel('Values')
@@ -243,10 +276,7 @@ def plot_moisture_rain_comparison(ax, df, title, start_date=None, end_date=None)
     for column in columns:
         ax.plot(interval_df.index, interval_df[column], label=column, marker='o', linestyle='-', markersize=2)
 
-    # Add vertical lines at the start of each day
-    start_of_days = interval_df.resample('D').mean().index
-    for day in start_of_days:
-        ax.axvline(day, color='grey', linestyle='--', linewidth=0.5)
+    add_start_of_days(df, ax)
 
     ax.set_xlabel('DateTime')
     ax.set_ylabel('Values')
@@ -264,14 +294,20 @@ def plot_moisture_rain_comparison(ax, df, title, start_date=None, end_date=None)
 
 
 if __name__ == '__main__':
+    setup_plt_fontsizes()
     # Define the directory structure
     base_dir = '..'
     meteo_pattern = os.path.join(base_dir, '**', 'meteo', '*.csv')
     # Set DateTime as the index
-    meteo_data = read_data(meteo_pattern)
+
+    time_interval = {'start_date': '2024-06-28T10:00:00', 'end_date': '2024-09-10T23:59:59'}
+
+
+    meteo_data = select_time_interval(read_data(meteo_pattern), **time_interval)
     # Resample the data to get samples at every 15 minutes
     # meteo_data_resampled = meteo_data.resample('15min').first()
     meteo_data_resampled = meteo_data.resample('15min').mean()
+    # meteo_data_resampled = meteo_data
 
     # Example: Plot WindSpeed and Temperature_Mean
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -280,18 +316,28 @@ if __name__ == '__main__':
     # plot_columns(ax, merged_df, ['Humidity_Mean', 'Temperature_Mean'], 'Humidity and Temperature Over Time')
     fig.savefig('meteo_data.pdf', format='pdf')
 
-
     # PR2 - a0 - s Oddyssey U01 u meteo stanice
     # PR2 - a1 - s Oddyssey U04 pod stromy
-    odyssey_data = read_odyssey_data(base_dir, filter=False, ids=[1,2,3,4])
+    # time_interval = {'start_date': '2024-06-01T00:00:00', 'end_date': '2024-06-20T23:59:59'}
+    time_interval = {'start_date': '2024-06-01T00:00:00', 'end_date': '2024-11-04T23:59:59'}
+    odyssey_data = read_odyssey_data(base_dir, filter=False, ids=[1, 2, 3, 4])
     odyssey_names = [f"U0{i+1}" for i in range(4)]
     for i in [0,1,2,3]:
+        # skip all data outside [0,1]
+        odyssey_columns = [f"odyssey_{i}" for i in range(5)]  # List of columns to check
+        condition = (odyssey_data[i][odyssey_columns] >= 0).all(axis=1) & (odyssey_data[i][odyssey_columns] <= 1).all(axis=1)
+        odyssey_data[i] = odyssey_data[i].loc[condition]
+        odyssey_data[i] = select_time_interval(odyssey_data[i], **time_interval)
+
         fig, ax = plt.subplots(figsize=(10, 6))
-        plot_columns(ax, odyssey_data[i], columns=[f"odyssey_{i}" for i in range(5)])
-        ax.set_title(f"Odyssey{odyssey_names[i]} - Soil Moisture Mineral")
+        plot_columns(ax, odyssey_data[i], columns=odyssey_columns)
+        ax.set_title(f"Odyssey {odyssey_names[i]} - Soil Moisture Mineral")
+        fig.tight_layout()
         fig.savefig(f"odyssey_data_{odyssey_names[i]}.pdf", format='pdf')
 
-    pr2_data = read_pr2_data(filter=False)
+    # exit(0)
+
+    pr2_data = read_pr2_data(base_dir, filter=False)
     pr2_names = [f"a{i}" for i in range(2)]
     merging_dates = {'start_date': '2024-07-05', 'end_date': '2024-07-15'}
 
