@@ -14,6 +14,11 @@ class PR2Reader{
 
     static const uint8_t _n_fields = 3;
     const char* _list_of_commands[_n_fields] = {"C", "C1", "C9"};
+    /**
+     * @brief 
+     * C1: Soil moisture measurement in Theta (m3.m-3) with Mineral soil type calibration
+     * C3: Soil moisture measurement as percentage volumetric (%) with Mineral soil type calibration
+     */
 
     uint8_t icmd = 0;
 

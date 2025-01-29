@@ -32,6 +32,8 @@ class Clock {
       if (rtc.lostPower())
       {
         DateTime dt = DateTime(F(__DATE__), F(__TIME__));
+        // UTC time: (Prague - 1) (summer time)
+        dt = dt - TimeSpan(3600);
         hlavo::SerialPrintf(100,"RTC lost power. Setting time: %s\n", dt.timestamp().c_str());
         // When time needs to be set on a new device, or after a power loss, the
         // following line sets the RTC to the date & time this sketch was compiled

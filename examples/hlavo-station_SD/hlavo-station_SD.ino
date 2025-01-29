@@ -1,4 +1,5 @@
 // SD card IO
+#include "Adafruit_SHT4x.h"
 #include "SD.h"
 // file handling
 #include "file_info.h"
@@ -38,19 +39,19 @@ void setup() {
         ; // cekani na Serial port
     }
 
-    FileInfo datafile(SD, data_meteo_filename);
+    FileInfo datafile(data_meteo_filename);
     datafile.append("World!\n");
     datafile.read();
 }
  
 void loop() {
 
-  FileInfo datafile(SD, data_meteo_filename);
+  FileInfo datafile(data_meteo_filename);
 
   char buffer[100];
   ltoa(millis(), buffer, 10);
-  // datafile.append(buffer);
-  // datafile.append("\n");
+  datafile.append(buffer);
+  datafile.append("\n");
   Serial.println(buffer);
   Serial.println("--------------------------");
 
